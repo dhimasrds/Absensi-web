@@ -215,24 +215,33 @@ export function FaceEnrollmentDialog({
     setStep('enrolling')
 
     try {
+      const requestBody = {
+        templateVersion: 'face-api-v1',
+        qualityScore: detectionResult?.confidence ? detectionResult.confidence / 100 : null,
+        payload: {
+          type: 'EMBEDDING_V1' as const,
+          embedding: embedding,
+        },
+      }
+      
+      console.log('Enrolling face with data:', {
+        ...requestBody,
+        payload: { ...requestBody.payload, embedding: `[${embedding.length} dimensions]` }
+      })
+      
       const response = await fetch(`/api/employees/${employee.id}/face/enroll`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          templateVersion: 'face-api-v1',
-          qualityScore: detectionResult?.confidence ? detectionResult.confidence / 100 : null,
-          payload: {
-            type: 'EMBEDDING_V1',
-            embedding: embedding,
-          },
-        }),
+        body: JSON.stringify(requestBody),
       })
 
+      const responseData = await response.json()
+      console.log('Response:', response.status, responseData)
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error?.message || 'Failed to enroll face')
+        throw new Error(responseData.error?.message || responseData.error?.details || 'Failed to enroll face')
       }
 
       setStep('success')
