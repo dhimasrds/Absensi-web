@@ -18,14 +18,14 @@ export async function POST(request: NextRequest) {
     const input = uploadUrlSchema.parse(body)
     
     // Validate device match
-    validateDeviceMatch(payload.deviceId, input.deviceId)
+    validateDeviceMatch(payload.deviceIdString, input.deviceId)
 
     const supabase = createAdminSupabaseClient()
 
-    // Generate unique file path
+    // Generate unique file path (use employee UUID for consistent folder structure)
     const fileExtension = input.contentType === 'image/jpeg' ? 'jpg' : 'png'
     const fileName = `${uuidv4()}.${fileExtension}`
-    const filePath = `${payload.employeeId}/${new Date().toISOString().split('T')[0]}/${fileName}`
+    const filePath = `${payload.sub}/${new Date().toISOString().split('T')[0]}/${fileName}`
 
     // Create signed upload URL
     const { data: uploadData, error: uploadError } = await supabase.storage

@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     const { count: activeSessions } = await supabase
       .from('mobile_sessions')
       .select('*', { count: 'exact', head: true })
-      .eq('employee_id', payload.employeeId)
+      .eq('employee_id', payload.sub)  // Use payload.sub (employee UUID)
       .is('revoked_at', null)
       .gt('expires_at', new Date().toISOString())
 

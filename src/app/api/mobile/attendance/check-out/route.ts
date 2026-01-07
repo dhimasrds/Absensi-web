@@ -17,10 +17,10 @@ export async function POST(request: NextRequest) {
     const input = mobileAttendanceSchema.parse(body)
     
     // Validate device match
-    validateDeviceMatch(payload.deviceId, input.deviceId)
+    validateDeviceMatch(payload.deviceIdString, input.deviceId)
     
-    // Validate employee match if provided
-    validateEmployeeMatch(payload.employeeId, input.employeeId)
+    // Validate employee match if provided (payload.sub is employee UUID)
+    validateEmployeeMatch(payload.sub, input.employeeId)
 
     const supabase = createAdminSupabaseClient()
 
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     const { data: lastAttendance } = await supabase
       .from('attendance_logs')
       .select('id, attendance_type, captured_at')
-      .eq('employee_id', payload.employeeId)
+      .eq('employee_id', payload.sub)  // Use payload.sub (employee UUID)
       .gte('captured_at', todayStart.toISOString())
       .lte('captured_at', todayEnd.toISOString())
       .order('captured_at', { ascending: false })
@@ -75,9 +75,9 @@ export async function POST(request: NextRequest) {
     const { data: attendance, error: insertError } = await supabase
       .from('attendance_logs')
       .insert({
-        employee_id: payload.employeeId,
+        employee_id: payload.sub,  // Use payload.sub (employee UUID)
         device_id: payload.deviceId,
-        session_id: payload.sessionId,
+        session_id: payload.sub,  // Use employee UUID as session ID
         attendance_type: 'CHECK_OUT',
         attendance_source: 'ANDROID',
         client_capture_id: input.clientCaptureId,

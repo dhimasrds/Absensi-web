@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     let dbQuery = supabase
       .from('attendance_logs')
       .select('*', { count: 'exact' })
-      .eq('employee_id', payload.employeeId)
+      .eq('employee_id', payload.sub)  // Use payload.sub (employee UUID)
       .order('captured_at', { ascending: false })
 
     // Apply filters
