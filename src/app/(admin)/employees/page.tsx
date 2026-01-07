@@ -158,6 +158,8 @@ function EmployeesPageContent() {
         employeeId: formData.employeeCode,
         fullName: formData.fullName,
         email: formData.email || null,
+        phoneNumber: formData.phoneNumber || null,
+        jobTitle: formData.jobTitle || null,
         department: formData.department || null,
         workLocationId: formData.workLocationId || null,
       }
@@ -193,6 +195,8 @@ function EmployeesPageContent() {
         employeeId: formData.employeeCode,
         fullName: formData.fullName,
         email: formData.email || null,
+        phoneNumber: formData.phoneNumber || null,
+        jobTitle: formData.jobTitle || null,
         department: formData.department || null,
         workLocationId: formData.workLocationId || null,
       }

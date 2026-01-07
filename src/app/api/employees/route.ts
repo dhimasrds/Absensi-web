@@ -68,6 +68,8 @@ export async function GET(request: NextRequest) {
         employeeCode: emp.employee_id,
         fullName: emp.full_name,
         email: emp.email,
+        phoneNumber: emp.phone_number,
+        jobTitle: emp.job_title,
         department: emp.department,
         workLocationId: emp.work_location_id,
         workLocationName: workLocation?.name || null,
