@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
           created_at
         )
       `)
-      .eq('id', payload.employeeId)
+      .eq('id', payload.sub)  // Use payload.sub which contains employee UUID
       .eq('is_active', true)
       .single()
 
@@ -91,9 +91,9 @@ export async function GET(request: NextRequest) {
         label: device.label,
       } : null,
       session: {
-        employeeId: payload.employeeId,
+        employeeId: payload.sub,  // Use UUID from payload.sub
         deviceId: payload.deviceId,
-        sessionId: payload.sessionId,
+        sessionId: payload.sub,  // Use employee UUID as session identifier
         activeSessions: activeSessions || 0,
       }
     })
