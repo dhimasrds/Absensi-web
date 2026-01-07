@@ -39,6 +39,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Convert embedding array to vector format for PostgreSQL
     const embeddingVector = `[${input.payload.embedding.join(',')}]`
+    
+    // Convert templateVersion to string for database
+    const templateVersionStr = String(input.templateVersion)
 
     // Check if face template already exists for this employee
     const { data: existingTemplate } = await supabase
@@ -54,7 +57,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const { data, error } = await supabase
         .from('face_templates')
         .update({
-          template_version: input.templateVersion,
+          template_version: templateVersionStr,
           embedding: embeddingVector,
           quality_score: input.qualityScore || null,
           is_active: true,
@@ -74,7 +77,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .from('face_templates')
         .insert({
           employee_id: id,
-          template_version: input.templateVersion,
+          template_version: templateVersionStr,
           embedding: embeddingVector,
           quality_score: input.qualityScore || null,
           is_active: true,
