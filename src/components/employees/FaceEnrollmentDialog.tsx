@@ -216,7 +216,7 @@ export function FaceEnrollmentDialog({
 
     try {
       const requestBody = {
-        templateVersion: 'face-api-v1',
+        templateVersion: 1, // Version 1 = face-api.js embedding
         qualityScore: detectionResult?.confidence ? detectionResult.confidence / 100 : null,
         payload: {
           type: 'EMBEDDING_V1' as const,
