@@ -1,0 +1,936 @@
+{
+  "info": {
+    "_postman_id": "absensi-api-collection-2026",
+    "name": "Absensi API Collection",
+    "description": "API Collection untuk Employee Attendance System\n\n## Authentication Flow\n1. Face Login → Get access_token & refresh_token\n2. Use access_token di Header Authorization\n3. Refresh token saat expired\n\n## Admin API\n- Gunakan Supabase Auth token\n\n## Mobile API\n- Gunakan JWT dari face-login",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "{{BASE_URL}}"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Mobile Auth",
+      "description": "Authentication endpoints untuk Android App",
+      "item": [
+        {
+          "name": "Face Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data) {",
+                  "        pm.environment.set('ACCESS_TOKEN', jsonData.data.accessToken);",
+                  "        pm.environment.set('REFRESH_TOKEN', jsonData.data.refreshToken);",
+                  "        pm.environment.set('EMPLOYEE_ID', jsonData.data.employee.id);",
+                  "        pm.environment.set('EMPLOYEE_NAME', jsonData.data.employee.name);",
+                  "        console.log('✅ Tokens saved to environment');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"{{DEVICE_ID}}\",\n  \"clientCaptureId\": \"{{$guid}}\",\n  \"capturedAt\": \"{{$isoTimestamp}}\",\n  \"payload\": {\n    \"type\": \"EMBEDDING_V1\",\n    \"embedding\": {{FACE_EMBEDDING}}\n  },\n  \"liveness\": {\n    \"provided\": true,\n    \"score\": 0.95\n  },\n  \"app\": {\n    \"version\": \"1.0.0\",\n    \"platform\": \"android\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/mobile/auth/face-login",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "mobile", "auth", "face-login"]
+            },
+            "description": "Login menggunakan face embedding 128-dimensional.\n\n**Response:**\n- accessToken (expires 15 min)\n- refreshToken (expires 7 days)\n- employee data\n- workLocation data"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data) {",
+                  "        pm.environment.set('ACCESS_TOKEN', jsonData.data.accessToken);",
+                  "        pm.environment.set('REFRESH_TOKEN', jsonData.data.refreshToken);",
+                  "        console.log('✅ Tokens refreshed');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{REFRESH_TOKEN}}\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/mobile/auth/refresh",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "mobile", "auth", "refresh"]
+            },
+            "description": "Refresh access token menggunakan refresh token"
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ACCESS_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/mobile/auth/logout",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "mobile", "auth", "logout"]
+            },
+            "description": "Logout dan revoke refresh token"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "👤 Mobile Profile",
+      "description": "Get user profile dan work location",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.workLocation) {",
+                  "        pm.environment.set('WORK_LOCATION_LAT', jsonData.data.workLocation.latitude);",
+                  "        pm.environment.set('WORK_LOCATION_LNG', jsonData.data.workLocation.longitude);",
+                  "        pm.environment.set('WORK_LOCATION_RADIUS', jsonData.data.workLocation.radius);",
+                  "        console.log('✅ Work location saved');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ACCESS_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/mobile/me",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "mobile", "me"]
+            },
+            "description": "Get current user profile, device info, dan work location"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📷 Mobile Upload",
+      "description": "Upload foto bukti attendance",
+      "item": [
+        {
+          "name": "Get Upload URL (Check-in)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data) {",
+                  "        pm.environment.set('UPLOAD_URL', jsonData.data.signedUrl);",
+                  "        pm.environment.set('PHOTO_PATH', jsonData.data.path);",
+                  "        console.log('✅ Upload URL saved: ' + jsonData.data.path);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ACCESS_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"check-in\",\n  \"contentType\": \"image/jpeg\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/mobile/upload-url",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "mobile", "upload-url"]
+            },
+            "description": "Get signed URL untuk upload foto attendance.\n\n**Type:** `check-in` atau `check-out`\n\n**Response:**\n- signedUrl: URL untuk upload\n- path: Path foto di storage\n- expiresIn: Waktu expired (detik)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Upload URL (Check-out)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data) {",
+                  "        pm.environment.set('UPLOAD_URL_CHECKOUT', jsonData.data.signedUrl);",
+                  "        pm.environment.set('PHOTO_PATH_CHECKOUT', jsonData.data.path);",
+                  "        console.log('✅ Checkout Upload URL saved');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ACCESS_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"check-out\",\n  \"contentType\": \"image/jpeg\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/mobile/upload-url",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "mobile", "upload-url"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Photo to Signed URL",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "image/jpeg"
+              }
+            ],
+            "body": {
+              "mode": "file",
+              "file": {
+                "src": ""
+              }
+            },
+            "url": {
+              "raw": "{{UPLOAD_URL}}",
+              "host": ["{{UPLOAD_URL}}"]
+            },
+            "description": "Upload foto ke signed URL.\n\n**Steps:**\n1. Klik 'Body' → 'binary'\n2. Pilih file gambar JPEG\n3. Pastikan Content-Type = image/jpeg"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "✅ Mobile Attendance",
+      "description": "Check-in dan Check-out",
+      "item": [
+        {
+          "name": "Check-in",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Generate unique client capture ID",
+                  "pm.environment.set('CLIENT_CAPTURE_ID', pm.variables.replaceIn('{{$guid}}'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ACCESS_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Client-Capture-Id",
+                "value": "{{CLIENT_CAPTURE_ID}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientCaptureId\": \"{{CLIENT_CAPTURE_ID}}\",\n  \"capturedAt\": \"{{$isoTimestamp}}\",\n  \"location\": {\n    \"latitude\": {{USER_LATITUDE}},\n    \"longitude\": {{USER_LONGITUDE}},\n    \"accuracy\": 10.5\n  },\n  \"photoPath\": \"{{PHOTO_PATH}}\",\n  \"faceMatchScore\": 0.9542,\n  \"livenessScore\": 0.9821\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/mobile/attendance/check-in",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "mobile", "attendance", "check-in"]
+            },
+            "description": "Record check-in attendance.\n\n**Required:**\n- clientCaptureId: UUID unik dari client (untuk idempotency)\n- capturedAt: Waktu capture di client\n- location: Koordinat GPS user\n- photoPath: Path foto dari upload-url\n\n**Validations:**\n- Harus dalam radius work location\n- Belum check-in hari ini\n- Device harus terdaftar"
+          },
+          "response": []
+        },
+        {
+          "name": "Check-out",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.environment.set('CLIENT_CAPTURE_ID_OUT', pm.variables.replaceIn('{{$guid}}'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ACCESS_TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Client-Capture-Id",
+                "value": "{{CLIENT_CAPTURE_ID_OUT}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientCaptureId\": \"{{CLIENT_CAPTURE_ID_OUT}}\",\n  \"capturedAt\": \"{{$isoTimestamp}}\",\n  \"location\": {\n    \"latitude\": {{USER_LATITUDE}},\n    \"longitude\": {{USER_LONGITUDE}},\n    \"accuracy\": 8.2\n  },\n  \"photoPath\": \"{{PHOTO_PATH_CHECKOUT}}\",\n  \"faceMatchScore\": 0.9612,\n  \"livenessScore\": 0.9756\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/mobile/attendance/check-out",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "mobile", "attendance", "check-out"]
+            },
+            "description": "Record check-out attendance.\n\n**Required:**\n- Harus sudah check-in hari ini\n- Belum check-out hari ini"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Attendance History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ACCESS_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/mobile/attendance/history?page=1&limit=10",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "mobile", "attendance", "history"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "month",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "year",
+                  "value": "2026",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get attendance history untuk user yang login.\n\n**Query Params:**\n- page: Nomor halaman (default: 1)\n- limit: Jumlah per halaman (default: 10)\n- month: Filter bulan (1-12)\n- year: Filter tahun"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Today's Attendance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ACCESS_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/mobile/attendance/today",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "mobile", "attendance", "today"]
+            },
+            "description": "Get attendance hari ini untuk ditampilkan di home screen"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🏢 Admin - Employees",
+      "description": "CRUD Employees (Admin only)",
+      "item": [
+        {
+          "name": "Get All Employees",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ADMIN_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees?page=1&limit=10",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Employee by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ADMIN_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees/{{EMPLOYEE_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees", "{{EMPLOYEE_ID}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Employee",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ADMIN_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeId\": \"EMP-NEW-001\",\n  \"name\": \"New Employee\",\n  \"email\": \"new.employee@company.com\",\n  \"department\": \"Engineering\",\n  \"position\": \"Software Developer\",\n  \"workLocationId\": \"{{WORK_LOCATION_ID}}\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Employee",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ADMIN_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"department\": \"IT Department\",\n  \"position\": \"Senior Developer\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees/{{EMPLOYEE_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees", "{{EMPLOYEE_ID}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Employee",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ADMIN_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees/{{EMPLOYEE_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees", "{{EMPLOYEE_ID}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Enroll Face Template",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ADMIN_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"embedding\": {{FACE_EMBEDDING}},\n  \"quality\": 0.95\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees/{{EMPLOYEE_ID}}/face/enroll",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees", "{{EMPLOYEE_ID}}", "face", "enroll"]
+            },
+            "description": "Enroll face embedding 128-dimensional untuk employee"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📱 Admin - Devices",
+      "description": "CRUD Devices (Admin only)",
+      "item": [
+        {
+          "name": "Get All Devices",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ADMIN_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/devices",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "devices"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register Device",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ADMIN_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"ANDROID-NEW-001\",\n  \"label\": \"New Android Device\",\n  \"employeeId\": \"{{EMPLOYEE_ID}}\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/devices",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "devices"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Device",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ADMIN_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/devices/{{DEVICE_UUID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "devices", "{{DEVICE_UUID}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📍 Admin - Work Locations",
+      "description": "CRUD Work Locations (Admin only)",
+      "item": [
+        {
+          "name": "Get All Work Locations",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.length > 0) {",
+                  "        pm.environment.set('WORK_LOCATION_ID', jsonData.data[0].id);",
+                  "        console.log('✅ Work Location ID saved: ' + jsonData.data[0].id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ADMIN_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/locations",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "locations"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Work Location",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ADMIN_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Office\",\n  \"address\": \"Jl. New Address No. 123\",\n  \"latitude\": -6.2088,\n  \"longitude\": 106.8456,\n  \"radius\": 500\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/locations",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "locations"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Work Location",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ADMIN_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Office Name\",\n  \"radius\": 750\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/locations/{{WORK_LOCATION_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "locations", "{{WORK_LOCATION_ID}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Work Location",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ADMIN_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/locations/{{WORK_LOCATION_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "locations", "{{WORK_LOCATION_ID}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📊 Admin - Attendance",
+      "description": "View attendance records (Admin only)",
+      "item": [
+        {
+          "name": "Get All Attendance",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ADMIN_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/attendance?page=1&limit=20",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "attendance"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "employeeId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "startDate",
+                  "value": "2026-01-01",
+                  "disabled": true
+                },
+                {
+                  "key": "endDate",
+                  "value": "2026-01-31",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Attendance by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ADMIN_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/attendance/{{ATTENDANCE_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "attendance", "{{ATTENDANCE_ID}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔧 Health Check",
+      "item": [
+        {
+          "name": "API Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/health",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
