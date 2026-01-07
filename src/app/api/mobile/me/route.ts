@@ -10,28 +10,35 @@ export async function GET(request: NextRequest) {
     const payload = await requireMobileAuth(request)
     const supabase = createAdminSupabaseClient()
 
-    // Get employee details
+    // Get employee details with work location
     const { data: employee, error } = await supabase
       .from('employees')
       .select(`
         id,
-        employee_code,
+        employee_id,
         full_name,
         email,
-        phone_number,
-        job_title,
         department,
-        active,
+        is_active,
+        work_location_id,
         created_at,
+        work_location:work_locations (
+          id,
+          name,
+          address,
+          latitude,
+          longitude,
+          radius_meters
+        ),
         face_templates (
           id,
-          version,
+          template_version,
           is_active,
           created_at
         )
       `)
       .eq('id', payload.employeeId)
-      .eq('active', true)
+      .eq('is_active', true)
       .single()
 
     if (error || !employee) {
@@ -42,9 +49,9 @@ export async function GET(request: NextRequest) {
     // Get device info
     const { data: device } = await supabase
       .from('devices')
-      .select('id, device_name, device_model, os_version')
+      .select('id, device_id, label')
       .eq('id', payload.deviceId)
-      .eq('active', true)
+      .eq('is_active', true)
       .single()
 
     // Get active session count
@@ -55,23 +62,33 @@ export async function GET(request: NextRequest) {
       .is('revoked_at', null)
       .gt('expires_at', new Date().toISOString())
 
+    // Extract work location (Supabase returns as array for single relation)
+    const workLocation = Array.isArray(employee.work_location) 
+      ? employee.work_location[0] 
+      : employee.work_location
+
     return successResponse({
       employee: {
         id: employee.id,
-        employeeCode: employee.employee_code,
+        employeeCode: employee.employee_id,
         fullName: employee.full_name,
         email: employee.email,
-        phoneNumber: employee.phone_number,
-        jobTitle: employee.job_title,
         department: employee.department,
         hasEnrolledFace: employee.face_templates && employee.face_templates.length > 0,
         activeFaceTemplates: employee.face_templates?.filter((ft: { is_active: boolean }) => ft.is_active).length || 0,
+        workLocation: workLocation ? {
+          id: workLocation.id,
+          name: workLocation.name,
+          address: workLocation.address,
+          latitude: workLocation.latitude,
+          longitude: workLocation.longitude,
+          radiusMeters: workLocation.radius_meters,
+        } : null,
       },
       device: device ? {
         id: device.id,
-        deviceName: device.device_name,
-        deviceModel: device.device_model,
-        osVersion: device.os_version,
+        deviceId: device.device_id,
+        label: device.label,
       } : null,
       session: {
         employeeId: payload.employeeId,

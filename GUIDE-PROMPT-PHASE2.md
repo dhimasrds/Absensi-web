@@ -251,17 +251,22 @@ Authorization: Bearer <access_token>
       "employeeCode": "EMP-001",
       "fullName": "John Doe",
       "email": "john@company.com",
-      "phoneNumber": "08123456789",
-      "jobTitle": "Software Engineer",
       "department": "IT",
       "hasEnrolledFace": true,
-      "activeFaceTemplates": 1
+      "activeFaceTemplates": 1,
+      "workLocation": {
+        "id": "uuid",
+        "name": "Head Office",
+        "address": "123 Main Street",
+        "latitude": -6.2088,
+        "longitude": 106.8456,
+        "radiusMeters": 500
+      }
     },
     "device": {
       "id": "uuid",
-      "deviceName": "Samsung Galaxy S21",
-      "deviceModel": "SM-G991B",
-      "osVersion": "Android 14"
+      "deviceId": "ANDROID-XXX-123",
+      "label": "Front Desk Tablet"
     },
     "session": {
       "employeeId": "uuid",
@@ -275,6 +280,8 @@ Authorization: Bearer <access_token>
   }
 }
 ```
+
+> **NOTE**: `workLocation` bisa `null` jika employee tidak di-assign ke lokasi kerja.
 
 ---
 
@@ -764,17 +771,19 @@ data class AppInfo(
 ### MILESTONE 11: Attendance Feature
 ────────────────────────────────────────
 
-**Goal**: Implementasi check-in dan check-out.
+**Goal**: Implementasi check-in dan check-out dengan geofencing validation.
 
 **Tasks**:
 1. Create HomeScreen dengan status attendance hari ini
 2. Create AttendanceScreen untuk capture foto
-3. Get upload URL dari API
-4. Upload foto ke Supabase Storage
-5. Call checkin/checkout API dengan semua required fields
-6. Handle idempotency (duplicate capture)
-7. Show success/error feedback
-8. Handle ALREADY_CHECKED_IN dan NOT_CHECKED_IN errors
+3. **[NEW] Implement Geofencing validation (lihat section bawah)**
+4. Get upload URL dari API
+5. Upload foto ke Supabase Storage
+6. Call checkin/checkout API dengan semua required fields
+7. Handle idempotency (duplicate capture)
+8. Show success/error feedback
+9. Handle ALREADY_CHECKED_IN dan NOT_CHECKED_IN errors
+10. **[NEW] Handle OUT_OF_RANGE location error**
 
 **Deliverables**:
 ```
@@ -788,9 +797,12 @@ data class AppInfo(
 │       └── AttendanceRepositoryImpl.kt
 ├── domain/
 │   ├── model/
-│   │   └── Attendance.kt
+│   │   ├── Attendance.kt
+│   │   └── WorkLocation.kt
 │   └── repository/
 │       └── AttendanceRepository.kt
+├── util/
+│   └── LocationUtils.kt          // [NEW] Geofencing helper
 └── ui/
     ├── home/
     │   ├── HomeScreen.kt
@@ -817,29 +829,163 @@ data class AttendanceRequest(
 )
 ```
 
-**Check-in Flow**:
+---
+
+#### GEOFENCING VALIDATION (NEW)
+
+Employee harus berada dalam radius lokasi kerja untuk bisa check-in/check-out.
+
+**WorkLocation Model dari /me API:**
+```kotlin
+data class WorkLocation(
+    val id: String,
+    val name: String,
+    val address: String?,
+    val latitude: Double,
+    val longitude: Double,
+    val radiusMeters: Int   // Default: 500 meters
+)
+```
+
+**LocationUtils.kt:**
+```kotlin
+import android.location.Location
+
+object LocationUtils {
+    /**
+     * Calculate distance between two coordinates in meters
+     */
+    fun calculateDistance(
+        lat1: Double, lon1: Double,
+        lat2: Double, lon2: Double
+    ): Float {
+        val results = FloatArray(1)
+        Location.distanceBetween(lat1, lon1, lat2, lon2, results)
+        return results[0]
+    }
+    
+    /**
+     * Check if user is within work location radius
+     * @return Pair(isWithinRange, distanceMeters)
+     */
+    fun validateLocation(
+        userLat: Double, userLon: Double,
+        workLocation: WorkLocation?
+    ): Pair<Boolean, Float?> {
+        if (workLocation == null) {
+            // No work location assigned, allow attendance anywhere
+            return Pair(true, null)
+        }
+        
+        val distance = calculateDistance(
+            userLat, userLon,
+            workLocation.latitude, workLocation.longitude
+        )
+        
+        val isWithinRange = distance <= workLocation.radiusMeters
+        return Pair(isWithinRange, distance)
+    }
+}
+```
+
+**UI Handling - AttendanceScreen:**
+```kotlin
+// In AttendanceViewModel
+fun checkGeofencing(userLat: Double, userLon: Double): GeofenceResult {
+    val workLocation = profileState.value.employee?.workLocation
+    val (isValid, distance) = LocationUtils.validateLocation(
+        userLat, userLon, workLocation
+    )
+    
+    return if (isValid) {
+        GeofenceResult.WithinRange
+    } else {
+        GeofenceResult.OutOfRange(
+            distance = distance!!,
+            locationName = workLocation!!.name,
+            radiusMeters = workLocation.radiusMeters
+        )
+    }
+}
+
+// Show Snackbar when out of range
+sealed class GeofenceResult {
+    object WithinRange : GeofenceResult()
+    data class OutOfRange(
+        val distance: Float,
+        val locationName: String,
+        val radiusMeters: Int
+    ) : GeofenceResult()
+}
+```
+
+**Snackbar Message:**
+```kotlin
+// When out of range, show this snackbar:
+val message = "Anda berada di luar area kerja '${result.locationName}' " +
+    "(${result.distance.toInt()}m dari lokasi, maksimal ${result.radiusMeters}m)"
+
+Snackbar.make(view, message, Snackbar.LENGTH_LONG)
+    .setAction("OK") { }
+    .show()
+```
+
+**Geofencing Flow:**
+```
+1. User tap "Check In" / "Check Out"
+2. Request location permission (if not granted)
+3. Get current GPS coordinates
+4. Get workLocation from /me API (cached in profile)
+5. Validate: distance <= workLocation.radiusMeters
+6. If VALID:
+   - Continue to camera/face capture
+7. If INVALID:
+   - Show Snackbar: "Anda berada di luar area kerja..."
+   - DO NOT proceed to attendance
+   - User must move to work location first
+```
+
+**Location Permission:**
+```kotlin
+// Required permissions in AndroidManifest.xml
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+// Request at runtime before attendance
+```
+
+---
+
+**Check-in Flow (Updated with Geofencing)**:
 ```
 1. User tap "Check In" di Home
-2. Navigate ke AttendanceScreen
-3. Camera preview dengan face detection
-4. Run liveness detection
-5. Capture foto + extract embedding
-6. Generate clientCaptureId (UUID)
-7. Get upload URL dari API
-8. Upload foto ke Supabase Storage
-9. Call /check-in API dengan:
+2. **[GEOFENCE] Request location permission if needed**
+3. **[GEOFENCE] Get current GPS coordinates**
+4. **[GEOFENCE] Check if within work location radius**
+5. **[GEOFENCE] If OUT of range → Show Snackbar, STOP**
+6. Navigate ke AttendanceScreen
+7. Camera preview dengan face detection
+8. Run liveness detection
+9. Capture foto + extract embedding
+10. Generate clientCaptureId (UUID)
+11. Get upload URL dari API
+12. Upload foto ke Supabase Storage
+13. Call /check-in API dengan:
    - deviceId, clientCaptureId, capturedAt
    - matchScore, livenessScore
    - proofImagePath dari upload
-10. Handle response:
+14. Handle response:
     - Success → Show success, navigate to Home
     - Idempotent → Show "already recorded"
     - ALREADY_CHECKED_IN → Show error
-11. Update Home dengan status "Checked In"
+15. Update Home dengan status "Checked In"
 ```
 
 **Acceptance Criteria**:
 - [ ] Home screen tampil status attendance hari ini
+- [ ] **[NEW] Geofencing check sebelum attendance**
+- [ ] **[NEW] Snackbar saat di luar area kerja**
+- [ ] **[NEW] Location permission request**
 - [ ] Check-in flow end-to-end
 - [ ] Check-out flow end-to-end
 - [ ] Foto terupload ke Supabase Storage

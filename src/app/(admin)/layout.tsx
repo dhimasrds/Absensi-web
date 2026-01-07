@@ -23,11 +23,13 @@ import {
   LogOut,
   Settings,
   ChevronDown,
+  MapPin,
 } from 'lucide-react'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Employees', href: '/employees', icon: Users },
+  { name: 'Locations', href: '/locations', icon: MapPin },
   { name: 'Devices', href: '/devices', icon: Smartphone },
   { name: 'Attendance', href: '/attendance', icon: ClipboardList },
 ]

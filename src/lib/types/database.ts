@@ -18,15 +18,32 @@ export interface Profile {
   updated_at: string
 }
 
+export interface WorkLocation {
+  id: string
+  name: string
+  address: string | null
+  latitude: number
+  longitude: number
+  radius_meters: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface Employee {
   id: string
   employee_id: string
   full_name: string
   email: string | null
   department: string | null
+  work_location_id: string | null
   is_active: boolean
   created_at: string
   updated_at: string
+}
+
+export interface EmployeeWithWorkLocation extends Employee {
+  work_location?: WorkLocation | null
 }
 
 export interface Device {

@@ -10,6 +10,7 @@ export const createEmployeeSchema = z.object({
   email: z.string().email('Invalid email').optional().nullable(),
   department: z.string().max(100).optional().nullable(),
   isActive: z.boolean().optional().default(true),
+  workLocationId: z.string().uuid('Invalid work location ID').optional().nullable(),
 })
 
 export const updateEmployeeSchema = z.object({
@@ -18,6 +19,7 @@ export const updateEmployeeSchema = z.object({
   email: z.string().email('Invalid email').optional().nullable(),
   department: z.string().max(100).optional().nullable(),
   isActive: z.boolean().optional(),
+  workLocationId: z.string().uuid('Invalid work location ID').optional().nullable(),
 })
 
 export const employeeQuerySchema = z.object({

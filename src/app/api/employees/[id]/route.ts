@@ -100,6 +100,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (input.email !== undefined) updateData.email = input.email
     if (input.department !== undefined) updateData.department = input.department
     if (input.isActive !== undefined) updateData.is_active = input.isActive
+    if (input.workLocationId !== undefined) updateData.work_location_id = input.workLocationId
 
     // Update employee
     const { data, error } = await supabase

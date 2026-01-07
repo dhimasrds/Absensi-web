@@ -26,10 +26,10 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createServerSupabaseClient()
     
-    // Build query
+    // Build query with work_location join
     let dbQuery = supabase
       .from('employees')
-      .select('*', { count: 'exact' })
+      .select('*, work_location:work_locations(id, name)', { count: 'exact' })
 
     // Search filter
     if (query.q) {
@@ -55,7 +55,24 @@ export async function GET(request: NextRequest) {
       return errors.internalError('Failed to fetch employees')
     }
 
-    return successResponse(data, {
+    // Transform response to match frontend expectations
+    const transformedData = data?.map((emp) => {
+      const workLocation = emp.work_location as { id: string; name: string } | null
+      return {
+        id: emp.id,
+        employeeCode: emp.employee_id,
+        fullName: emp.full_name,
+        email: emp.email,
+        department: emp.department,
+        workLocationId: emp.work_location_id,
+        workLocationName: workLocation?.name || null,
+        active: emp.is_active,
+        createdAt: emp.created_at,
+        updatedAt: emp.updated_at,
+      }
+    }) || []
+
+    return successResponse(transformedData, {
       pagination: {
         page: query.page,
         limit: query.limit,
@@ -120,6 +137,7 @@ export async function POST(request: NextRequest) {
         email: input.email || null,
         department: input.department || null,
         is_active: input.isActive ?? true,
+        work_location_id: input.workLocationId || null,
       })
       .select()
       .single()

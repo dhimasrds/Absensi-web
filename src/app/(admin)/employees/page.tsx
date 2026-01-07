@@ -23,10 +23,24 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
-import { Plus, Search, Pencil, Trash2, UserPlus, Users } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, UserPlus, Users, MapPin } from 'lucide-react'
+
+interface WorkLocation {
+  id: string
+  name: string
+  address: string | null
+  is_active: boolean
+}
 
 interface Employee {
   id: string
@@ -36,6 +50,8 @@ interface Employee {
   phoneNumber: string | null
   jobTitle: string | null
   department: string | null
+  workLocationId: string | null
+  workLocationName: string | null
   active: boolean
   createdAt: string
 }
@@ -62,6 +78,7 @@ function EmployeesPageContent() {
   const [page, setPage] = useState(Number(searchParams.get('page')) || 1)
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
+  const [workLocations, setWorkLocations] = useState<WorkLocation[]>([])
   
   // Dialog states
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -78,6 +95,7 @@ function EmployeesPageContent() {
     phoneNumber: '',
     jobTitle: '',
     department: '',
+    workLocationId: '',
   })
 
   const fetchEmployees = useCallback(async () => {
@@ -107,6 +125,22 @@ function EmployeesPageContent() {
     fetchEmployees()
   }, [fetchEmployees])
 
+  // Fetch work locations
+  useEffect(() => {
+    const fetchWorkLocations = async () => {
+      try {
+        const res = await fetch('/api/work-locations?isActive=true&limit=100')
+        const data = await res.json()
+        if (data.data) {
+          setWorkLocations(data.data)
+        }
+      } catch {
+        console.error('Failed to fetch work locations')
+      }
+    }
+    fetchWorkLocations()
+  }, [])
+
   const handleSearch = (value: string) => {
     setSearch(value)
     setPage(1)
@@ -116,10 +150,19 @@ function EmployeesPageContent() {
   const handleCreate = async () => {
     setFormLoading(true)
     try {
+      // Map form fields to API fields
+      const payload = {
+        employeeId: formData.employeeCode,
+        fullName: formData.fullName,
+        email: formData.email || null,
+        department: formData.department || null,
+        workLocationId: formData.workLocationId || null,
+      }
+      
       const res = await fetch('/api/employees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       })
       
       if (!res.ok) {
@@ -129,7 +172,7 @@ function EmployeesPageContent() {
       
       toast.success('Employee created successfully')
       setIsCreateOpen(false)
-      setFormData({ employeeCode: '', fullName: '', email: '', phoneNumber: '', jobTitle: '', department: '' })
+      setFormData({ employeeCode: '', fullName: '', email: '', phoneNumber: '', jobTitle: '', department: '', workLocationId: '' })
       fetchEmployees()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to create employee')
@@ -142,10 +185,19 @@ function EmployeesPageContent() {
     if (!selectedEmployee) return
     setFormLoading(true)
     try {
+      // Map form fields to API fields
+      const payload = {
+        employeeId: formData.employeeCode,
+        fullName: formData.fullName,
+        email: formData.email || null,
+        department: formData.department || null,
+        workLocationId: formData.workLocationId || null,
+      }
+      
       const res = await fetch(`/api/employees/${selectedEmployee.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       })
       
       if (!res.ok) {
@@ -197,6 +249,7 @@ function EmployeesPageContent() {
       phoneNumber: employee.phoneNumber || '',
       jobTitle: employee.jobTitle || '',
       department: employee.department || '',
+      workLocationId: employee.workLocationId || '',
     })
     setIsEditOpen(true)
   }
@@ -288,6 +341,33 @@ function EmployeesPageContent() {
                   />
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="workLocation">Work Location</Label>
+                <Select
+                  value={formData.workLocationId || 'none'}
+                  onValueChange={(value) => setFormData({ ...formData, workLocationId: value === 'none' ? '' : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select work location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      <span className="text-muted-foreground">No location assigned</span>
+                    </SelectItem>
+                    {workLocations.map((loc) => (
+                      <SelectItem key={loc.id} value={loc.id}>
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-3 w-3" />
+                          {loc.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Employee must be at this location to clock in (geofencing)
+                </p>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
@@ -342,6 +422,7 @@ function EmployeesPageContent() {
                   <TableRow>
                     <TableHead>Employee</TableHead>
                     <TableHead>Department</TableHead>
+                    <TableHead>Location</TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -361,6 +442,16 @@ function EmployeesPageContent() {
                           <p>{emp.department || '-'}</p>
                           <p className="text-sm text-gray-500">{emp.jobTitle || '-'}</p>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {emp.workLocationName ? (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-sm">{emp.workLocationName}</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div>
@@ -494,6 +585,30 @@ function EmployeesPageContent() {
                   onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-workLocation">Work Location</Label>
+              <Select
+                value={formData.workLocationId || 'none'}
+                onValueChange={(value) => setFormData({ ...formData, workLocationId: value === 'none' ? '' : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select work location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">No location assigned</span>
+                  </SelectItem>
+                  {workLocations.map((loc) => (
+                    <SelectItem key={loc.id} value={loc.id}>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-3 w-3" />
+                        {loc.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
