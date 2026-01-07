@@ -18,15 +18,38 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminSupabaseClient()
 
-    // 1. Check if device is registered and active
-    const device = await checkDeviceActive(input.deviceId)
+    // 1. Check if device is registered, auto-register if not
+    let device = await checkDeviceActive(input.deviceId)
     
     if (!device) {
-      return errors.deviceNotRegistered()
+      // Auto-register new device with default label from app info
+      const deviceLabel = `${input.app?.platform || 'Mobile'} Device - Auto Registered`
+      
+      const { data: newDevice, error: deviceError } = await supabase
+        .from('devices')
+        .insert({
+          device_id: input.deviceId,
+          label: deviceLabel,
+          is_active: true,
+        })
+        .select('id, device_id, is_active')
+        .single()
+
+      if (deviceError) {
+        console.error('Auto-register device error:', deviceError)
+        return errors.internalError('Failed to register device')
+      }
+
+      device = {
+        id: newDevice.id,
+        deviceId: newDevice.device_id,
+        isActive: newDevice.is_active,
+      }
     }
 
+    // Check if device is active
     if (!device.isActive) {
-      return errors.deviceNotRegistered()
+      return errors.deviceNotRegistered() // Using existing error for blocked device
     }
 
     // 2. Check capture timestamp is not stale
