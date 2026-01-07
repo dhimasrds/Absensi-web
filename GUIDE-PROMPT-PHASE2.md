@@ -33,12 +33,23 @@ Sebelum memulai Phase 2, pastikan Phase 1 sudah menyediakan:
 |-----------|--------|-------------|
 | **Supabase Project** | ✅ Ready | Database PostgreSQL + Auth + Storage |
 | **Web Admin** | ✅ Ready | Next.js app untuk admin management |
-| **Employee Data** | ✅ Ready | CRUD employees via `/employees` page |
-| **Device Registration** | ✅ Ready | CRUD devices via `/devices` page |
+| **Employee Data** | ✅ Ready | CRUD employees via `/employees` page (with phone & job title) |
+| **Device Registration** | ✅ Ready | CRUD devices via `/devices` page + **Auto-registration** |
 | **Work Locations** | ✅ Ready | CRUD locations via `/locations` page |
 | **Face Templates** | ✅ Ready | Face enrollment via admin |
 | **Mobile APIs** | ✅ Ready | `/api/mobile/*` endpoints |
 | **Storage Bucket** | ✅ Ready | `attendance-proofs` bucket |
+
+### Recent Updates (Phase 1)
+
+> **LATEST CHANGES** yang mempengaruhi Android development:
+
+| Update | Date | Impact |
+|--------|------|--------|
+| **Auto Device Registration** | 2026-01-08 | Device otomatis terdaftar saat face login pertama. Manual registration optional. |
+| **Phone & Job Title Fields** | 2026-01-08 | Employees table sekarang punya `phone_number` dan `job_title`. Hanya untuk Web Admin, tidak di-return ke mobile. |
+| **Face Match Threshold** | 2026-01-08 | Lowered dari 0.80 → **0.70** untuk matching yang lebih lenient. |
+| **Capture Max Skew** | Always | 120 detik (2 menit) - timestamp validation untuk anti-replay. |
 
 ### Admin Setup Before Mobile App Can Work
 
@@ -47,23 +58,33 @@ Sebelum memulai Phase 2, pastikan Phase 1 sudah menyediakan:
 ```
 1. CREATE EMPLOYEE
    - Buka Web Admin → /employees
-   - Add new employee dengan data lengkap
+   - Add new employee dengan data lengkap:
+     • Employee ID (required)
+     • Full Name (required)
+     • Email (optional)
+     • Phone Number (optional)
+     • Job Title (optional)
+     • Department (optional)
+     • Work Location (optional)
    - Catat employee_id yang di-generate
 
-2. REGISTER DEVICE  
-   - Buka Web Admin → /devices
-   - Add new device dengan:
+2. REGISTER DEVICE (OPTIONAL - AUTO-REGISTER ENABLED)
+   - Device akan OTOMATIS terdaftar saat pertama kali face login berhasil
+   - Atau admin bisa manual register via Web Admin → /devices:
      • device_id: String unik dari Android (e.g., "ANDROID-XXX-123")
-     • employee_id: Link ke employee yang akan pakai device ini
      • label: Nama device (e.g., "Samsung A52 - John")
-   - Set status: ACTIVE
+     • Set status: ACTIVE
+   
+   > **NOTE**: Sejak update terbaru, device auto-register saat face login pertama.
+   > Manual registration hanya untuk pre-authorize device sebelum employee login.
 
 3. ENROLL FACE (WAJIB untuk face login)
-   - Admin capture wajah employee
-   - Extract embedding 128-dim menggunakan tool/script
-   - Insert ke table `face_templates` via SQL/API:
-     INSERT INTO face_templates (employee_id, embedding, version, quality_score)
-     VALUES ('uuid', '[0.1, 0.2, ...]', 'EMBEDDING_V1', 0.95);
+   - Admin capture wajah employee via Web Admin → /employees → [employee] → Enroll Face
+   - Face detection otomatis extract embedding 128-dim
+   - Template disimpan ke table `face_templates`
+   - Atau manual insert via SQL/API:
+     INSERT INTO face_templates (employee_id, embedding, template_version, quality_score)
+     VALUES ('uuid', '[0.1, 0.2, ...]', 1, 0.95);
 
 4. ASSIGN WORK LOCATION (Optional)
    - Buka Web Admin → /employees → Edit
@@ -234,12 +255,16 @@ implementation("com.google.maps.android:maps-compose:4.3.0")
 
 Face login dengan embedding 128-dimensional.
 
+> **AUTO-DEVICE REGISTRATION**: 
+> Jika deviceId belum terdaftar, sistem akan otomatis register device dengan label default.
+> Tidak perlu manual device registration sebelumnya.
+
 **Request Body:**
 ```json
 {
   "deviceId": "ANDROID-XXX-123",
   "clientCaptureId": "uuid-unique-per-capture",
-  "capturedAt": "2026-01-07T08:30:00.000Z",
+  "capturedAt": "2026-01-08T10:00:00.000Z",
   "payload": {
     "type": "EMBEDDING_V1",
     "embedding": [0.123, -0.456, ...]  // Array of 128 floats
@@ -281,7 +306,7 @@ Face login dengan embedding 128-dimensional.
 
 **Error Responses:**
 ```json
-// 403 - Device tidak terdaftar
+// 403 - Device tidak aktif (jika device sudah terdaftar tapi disabled)
 {
   "error": {
     "code": "DEVICE_NOT_REGISTERED",
@@ -289,7 +314,7 @@ Face login dengan embedding 128-dimensional.
   }
 }
 
-// 400 - Capture terlalu lama
+// 400 - Capture terlalu lama (max 120 detik dari server time)
 {
   "error": {
     "code": "CAPTURE_STALE",
@@ -411,7 +436,7 @@ Authorization: Bearer <access_token>
     "device": {
       "id": "uuid",
       "deviceId": "ANDROID-XXX-123",
-      "label": "Front Desk Tablet"
+      "label": "Android Device - Auto Registered"
     },
     "session": {
       "employeeId": "uuid",
@@ -426,7 +451,10 @@ Authorization: Bearer <access_token>
 }
 ```
 
-> **NOTE**: `workLocation` bisa `null` jika employee tidak di-assign ke lokasi kerja.
+> **NOTES**: 
+> - `workLocation` bisa `null` jika employee tidak di-assign ke lokasi kerja
+> - `device.label` akan otomatis dibuat jika device auto-registered
+> - Phone number dan job title TIDAK di-return di /me endpoint (tidak dibutuhkan mobile app)
 
 ---
 
@@ -754,32 +782,38 @@ Authorization: Bearer <access_token>
 |------|-------------|-------------|
 | `UNAUTHORIZED` | 401 | Token invalid/expired |
 | `FORBIDDEN` | 403 | Access denied |
-| `DEVICE_NOT_REGISTERED` | 403 | Device tidak terdaftar |
+| `DEVICE_NOT_REGISTERED` | 403 | Device tidak aktif (disabled by admin) |
 | `DEVICE_MISMATCH` | 403 | Device ID tidak cocok dengan token |
-| `FACE_NOT_RECOGNIZED` | 401 | Wajah tidak cocok |
+| `FACE_NOT_RECOGNIZED` | 401 | Wajah tidak cocok dengan threshold (0.70) |
 | `ALREADY_CHECKED_IN` | 409 | Sudah check-in hari ini |
 | `NOT_CHECKED_IN` | 409 | Belum check-in (untuk checkout) |
 | `DUPLICATE_CAPTURE` | 409 | Capture sudah pernah diproses |
-| `CAPTURE_STALE` | 400 | Timestamp capture terlalu lama |
+| `CAPTURE_STALE` | 400 | Timestamp capture > 120 detik dari server time |
 | `INVALID_REFRESH_TOKEN` | 401 | Refresh token invalid |
 | `VALIDATION_ERROR` | 400 | Request body tidak valid |
 | `INTERNAL_ERROR` | 500 | Server error |
 
-> **NOTE**: Error `OUT_OF_RANGE` untuk geofencing di-handle di **CLIENT SIDE** (Android).
-> Server tidak melakukan validasi lokasi - validasi dilakukan di app sebelum request.
+> **NOTES**: 
+> - Error `OUT_OF_RANGE` untuk geofencing di-handle di **CLIENT SIDE** (Android)
+> - Server tidak melakukan validasi lokasi - validasi dilakukan di app sebelum request
+> - `DEVICE_NOT_REGISTERED` hanya muncul jika device sudah terdaftar tapi di-disable
+> - Device baru otomatis terdaftar saat face login pertama kali
 
 ---
 
 ### 3.4 Important Notes
 
 1. **Face Embedding**: Gunakan **128-dimensional** embedding (MobileFaceNet)
-2. **Client Capture ID**: Generate UUID baru untuk setiap capture, digunakan untuk:
+2. **Face Match Threshold**: Server menggunakan threshold **0.70** (cosine similarity)
+3. **Client Capture ID**: Generate UUID baru untuk setiap capture, digunakan untuk:
    - Anti-replay attack
    - Idempotency (jika request gagal, bisa retry dengan ID yang sama)
-3. **Captured At**: Timestamp saat capture dilakukan, max skew 120 detik dari server time
-4. **Device ID**: String unik device, generate sekali dan simpan permanen
-5. **Liveness Score**: Nilai 0-1, hasil dari liveness detection
-6. **Work Location**: Dari `/api/mobile/me`, digunakan untuk geofencing validation di client
+4. **Captured At**: Timestamp saat capture dilakukan, max skew **120 detik** dari server time
+5. **Device ID**: String unik device, generate sekali dan simpan permanen
+6. **Auto Device Registration**: Device otomatis terdaftar saat face login pertama kali berhasil
+7. **Liveness Score**: Nilai 0-1, hasil dari liveness detection
+8. **Work Location**: Dari `/api/mobile/me`, digunakan untuk geofencing validation di client
+9. **Phone Number & Job Title**: Tersedia di Web Admin untuk employee management, TIDAK di-return ke mobile API
 
 ---
 
