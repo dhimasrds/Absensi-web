@@ -13,8 +13,136 @@
   ],
   "item": [
     {
-      "name": "🔐 Mobile Auth",
-      "description": "Authentication endpoints untuk Android App",
+      "name": "� Admin Auth",
+      "description": "Authentication endpoints untuk Admin Web (Email/Password)",
+      "item": [
+        {
+          "name": "Admin Login (Email/Password)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data) {",
+                  "        pm.environment.set('ADMIN_TOKEN', jsonData.data.accessToken);",
+                  "        pm.environment.set('ADMIN_REFRESH_TOKEN', jsonData.data.refreshToken);",
+                  "        pm.environment.set('ADMIN_USER_ID', jsonData.data.user.id);",
+                  "        pm.environment.set('ADMIN_EMAIL', jsonData.data.user.email);",
+                  "        console.log('✅ Admin tokens saved to environment');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{ADMIN_EMAIL}}\",\n  \"password\": \"{{ADMIN_PASSWORD}}\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/login",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login admin dengan email dan password.\n\n**Response:**\n- accessToken (Supabase JWT)\n- refreshToken\n- user info"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data) {",
+                  "        pm.environment.set('ADMIN_TOKEN', jsonData.data.accessToken);",
+                  "        pm.environment.set('ADMIN_REFRESH_TOKEN', jsonData.data.refreshToken);",
+                  "        console.log('✅ Admin tokens refreshed');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{ADMIN_REFRESH_TOKEN}}\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/refresh",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "description": "Refresh admin access token menggunakan refresh token"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Get Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ADMIN_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/me",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Get current admin user info"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ADMIN_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/logout",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "description": "Logout admin dan invalidate token"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "�🔐 Mobile Auth",
+      "description": "Authentication endpoints untuk Android App (Face Recognition)",
       "item": [
         {
           "name": "Face Login",

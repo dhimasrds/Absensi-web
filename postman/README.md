@@ -27,9 +27,17 @@ Di pojok kanan atas Postman, pilih environment:
 - **Absensi API - Production** → untuk test ke Vercel
 - **Absensi API - Local Development** → untuk test localhost
 
-### 3. Setup Admin Token (untuk Admin API)
+### 3. Setup Admin Credentials
 
-Admin API membutuhkan Supabase Auth token:
+**Option A: Login via API (Recommended)**
+
+1. Edit environment variables:
+   - `ADMIN_EMAIL`: Email admin yang terdaftar
+   - `ADMIN_PASSWORD`: Password admin
+2. Jalankan request **"Admin Login (Email/Password)"**
+3. Token akan otomatis tersimpan ke `ADMIN_TOKEN`
+
+**Option B: Manual dari Browser**
 
 1. Login ke Web Admin: https://absensi-web-rouge.vercel.app/login
 2. Buka Browser DevTools → Application → Cookies
@@ -38,9 +46,44 @@ Admin API membutuhkan Supabase Auth token:
 
 ---
 
+## 🔑 Admin API Flow
+
+### Authentication Flow (Email/Password)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                  │
+│  1. Admin Login                                                 │
+│     POST /api/auth/login                                        │
+│     Body: { email, password }                                   │
+│           ↓                                                      │
+│     Response: { accessToken, refreshToken, user }               │
+│                                                                  │
+│  2. Use Access Token                                            │
+│     Header: Authorization: Bearer {accessToken}                 │
+│                                                                  │
+│  3. Token Expired? Refresh                                      │
+│     POST /api/auth/refresh                                      │
+│     Body: { refreshToken }                                      │
+│           ↓                                                      │
+│     Response: { new accessToken, new refreshToken }             │
+│                                                                  │
+│  4. Get Current User                                            │
+│     GET /api/auth/me                                            │
+│           ↓                                                      │
+│     Response: { user info }                                     │
+│                                                                  │
+│  5. Logout                                                      │
+│     POST /api/auth/logout                                       │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## 📱 Mobile API Flow
 
-### Authentication Flow
+### Authentication Flow (Face Recognition)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -97,6 +140,8 @@ Admin API membutuhkan Supabase Auth token:
 |----------|--------|-----------|
 | `ACCESS_TOKEN` | Face Login | JWT access token (15 min) |
 | `REFRESH_TOKEN` | Face Login | JWT refresh token (7 days) |
+| `ADMIN_TOKEN` | Admin Login | Admin JWT token |
+| `ADMIN_REFRESH_TOKEN` | Admin Login | Admin refresh token |
 | `EMPLOYEE_ID` | Face Login | ID employee yang login |
 | `EMPLOYEE_NAME` | Face Login | Nama employee |
 | `WORK_LOCATION_ID` | Get Locations | ID lokasi kerja |
@@ -110,8 +155,9 @@ Admin API membutuhkan Supabase Auth token:
 | Variable | Default | Deskripsi |
 |----------|---------|-----------|
 | `BASE_URL` | Production URL | API base URL |
+| `ADMIN_EMAIL` | `admin@company.com` | Email admin untuk login |
+| `ADMIN_PASSWORD` | - | Password admin untuk login |
 | `DEVICE_ID` | `ANDROID-TEST-001` | Device ID terdaftar |
-| `ADMIN_TOKEN` | - | Supabase auth token |
 | `USER_LATITUDE` | `-6.2088` | Koordinat user (testing) |
 | `USER_LONGITUDE` | `106.8456` | Koordinat user (testing) |
 | `FACE_EMBEDDING` | Sample 128-dim | Face embedding untuk test |
@@ -119,6 +165,14 @@ Admin API membutuhkan Supabase Auth token:
 ---
 
 ## 📝 API Endpoints Summary
+
+### 🔑 Admin Auth
+| Method | Endpoint | Auth | Deskripsi |
+|--------|----------|------|-----------|
+| POST | `/api/auth/login` | ❌ | Login dengan email/password |
+| POST | `/api/auth/refresh` | ❌ | Refresh admin token |
+| GET | `/api/auth/me` | ✅ Admin | Get current admin user |
+| POST | `/api/auth/logout` | ✅ Admin | Logout admin |
 
 ### 🔐 Mobile Auth
 | Method | Endpoint | Auth | Deskripsi |
