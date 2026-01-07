@@ -58,7 +58,11 @@ export async function GET(request: NextRequest) {
     // Transform response to match frontend expectations
     const transformedData = data?.map((emp) => {
       const workLocation = emp.work_location as { id: string; name: string } | null
-      const faceTemplates = emp.face_templates as { id: string }[] | null
+      // face_templates can be array, single object, or null depending on Supabase response
+      const faceTemplates = emp.face_templates
+      // Check if face template exists (could be array or single object)
+      const hasFace = faceTemplates !== null && 
+        (Array.isArray(faceTemplates) ? faceTemplates.length > 0 : typeof faceTemplates === 'object')
       return {
         id: emp.id,
         employeeCode: emp.employee_id,
@@ -68,7 +72,7 @@ export async function GET(request: NextRequest) {
         workLocationId: emp.work_location_id,
         workLocationName: workLocation?.name || null,
         active: emp.is_active,
-        hasFaceEnrolled: Array.isArray(faceTemplates) && faceTemplates.length > 0,
+        hasFaceEnrolled: hasFace,
         createdAt: emp.created_at,
         updatedAt: emp.updated_at,
       }
