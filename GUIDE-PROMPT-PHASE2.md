@@ -30,16 +30,17 @@ Phase 2 wajib selesai:
 ### A. Android App Features
 - Face detection & liveness check (anti-spoofing)
 - Face login dengan embedding extraction (128-dimensional)
-- Check-in dengan foto bukti
-- Check-out dengan foto bukti  
+- Check-in dengan foto bukti + **Geofencing validation**
+- Check-out dengan foto bukti + **Geofencing validation**
 - Riwayat absensi personal
 - Offline mode dengan auto-sync
+- **GPS location validation against assigned work location**
 
 ### B. Integrasi dengan Phase 1 API
 - Face login → `POST /api/mobile/auth/face-login`
 - Token refresh → `POST /api/mobile/auth/refresh`
 - Logout → `POST /api/mobile/auth/logout`
-- Get profile → `GET /api/mobile/me`
+- Get profile (incl. work location) → `GET /api/mobile/me`
 - Upload foto → `POST /api/mobile/upload-url`
 - Check-in → `POST /api/mobile/attendance/check-in`
 - Check-out → `POST /api/mobile/attendance/check-out`
@@ -51,6 +52,30 @@ Phase 2 wajib selesai:
 - Device binding validation
 - Liveness detection untuk anti-spoofing
 - Client capture ID untuk idempotency & anti-replay
+- **GPS spoofing prevention (mock location detection)**
+
+### D. Geofencing Requirements (FROM PHASE 1)
+> Phase 1 sudah menyediakan fitur **Work Locations** untuk employee:
+> - Admin dapat membuat lokasi kerja dengan koordinat (lat, lng) dan radius
+> - Admin dapat assign employee ke work location tertentu
+> - API `/api/mobile/me` mengembalikan `workLocation` untuk employee
+> - Android app WAJIB validasi GPS sebelum check-in/check-out
+
+**Work Location dari Phase 1:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Work location ID |
+| `name` | String | Location name (e.g., "Head Office") |
+| `address` | String? | Full address |
+| `latitude` | Double | GPS latitude |
+| `longitude` | Double | GPS longitude |
+| `radiusMeters` | Int | Allowed radius in meters (default: 500m) |
+
+**Validation Rule:**
+- Calculate distance antara GPS user dengan koordinat `workLocation`
+- Jika `distance <= radiusMeters` → ALLOW attendance
+- Jika `distance > radiusMeters` → BLOCK attendance, show error
+- Jika `workLocation` is `null` → ALLOW attendance (no location restriction)
 
 ====================================================
 ## 2) TECH STACK
@@ -71,7 +96,24 @@ Android:
 ├── Face Embedding: TensorFlow Lite (MobileFaceNet - 128 dim)
 ├── Image Loading: Coil
 ├── Background Sync: WorkManager
-└── Security: EncryptedSharedPreferences
+├── Security: EncryptedSharedPreferences
+├── Location: Google Play Services Location (FusedLocationProvider)
+└── Maps: Google Maps SDK (optional, for showing work location)
+```
+
+**Additional Gradle Dependencies for Location:**
+```kotlin
+// Location Services
+implementation("com.google.android.gms:play-services-location:21.0.1")
+
+// Optional: Maps for visualizing work location
+implementation("com.google.maps.android:maps-compose:4.3.0")
+```
+
+**Required Permissions:**
+```xml
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 ```
 
 ====================================================
@@ -528,6 +570,9 @@ Authorization: Bearer <access_token>
 | `VALIDATION_ERROR` | 400 | Request body tidak valid |
 | `INTERNAL_ERROR` | 500 | Server error |
 
+> **NOTE**: Error `OUT_OF_RANGE` untuk geofencing di-handle di **CLIENT SIDE** (Android).
+> Server tidak melakukan validasi lokasi - validasi dilakukan di app sebelum request.
+
 ---
 
 ### 3.4 Important Notes
@@ -539,6 +584,56 @@ Authorization: Bearer <access_token>
 3. **Captured At**: Timestamp saat capture dilakukan, max skew 120 detik dari server time
 4. **Device ID**: String unik device, generate sekali dan simpan permanen
 5. **Liveness Score**: Nilai 0-1, hasil dari liveness detection
+6. **Work Location**: Dari `/api/mobile/me`, digunakan untuk geofencing validation di client
+
+---
+
+### 3.5 Work Location Data Flow (Phase 1 → Phase 2)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         PHASE 1 (WEB)                           │
+├─────────────────────────────────────────────────────────────────┤
+│  Admin creates work locations:                                  │
+│  - /locations page → POST /api/work-locations                   │
+│  - Sets: name, address, latitude, longitude, radius_meters      │
+│                                                                 │
+│  Admin assigns employee to location:                            │
+│  - /employees page → work_location dropdown                     │
+│  - Saves work_location_id to employees table                    │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         API BRIDGE                              │
+├─────────────────────────────────────────────────────────────────┤
+│  GET /api/mobile/me                                             │
+│  Returns employee data including workLocation:                  │
+│  {                                                              │
+│    "employee": {                                                │
+│      "workLocation": {                                          │
+│        "id": "uuid",                                            │
+│        "name": "Head Office",                                   │
+│        "latitude": -6.2088,                                     │
+│        "longitude": 106.8456,                                   │
+│        "radiusMeters": 500                                      │
+│      }                                                          │
+│    }                                                            │
+│  }                                                              │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       PHASE 2 (ANDROID)                         │
+├─────────────────────────────────────────────────────────────────┤
+│  App validates location before attendance:                      │
+│  1. Get user GPS coordinates                                    │
+│  2. Get workLocation from cached /me response                   │
+│  3. Calculate distance using Haversine formula                  │
+│  4. If distance > radiusMeters → Block attendance               │
+│  5. If distance <= radiusMeters → Allow attendance              │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ====================================================
 ## 4) MILESTONES
@@ -831,7 +926,14 @@ data class AttendanceRequest(
 
 ---
 
-#### GEOFENCING VALIDATION (NEW)
+#### GEOFENCING VALIDATION (INTEGRATED WITH PHASE 1)
+
+> **INFO**: Phase 1 sudah menyediakan fitur Work Locations management:
+> - Web Admin: `/locations` page untuk CRUD work locations
+> - API: `GET/POST /api/work-locations` untuk admin
+> - Database: Table `work_locations` dengan lat/lng/radius
+> - Employee: Kolom `work_location_id` untuk assignment
+> - Mobile API: `/api/mobile/me` mengembalikan `workLocation` object
 
 Employee harus berada dalam radius lokasi kerja untuk bisa check-in/check-out.
 
@@ -843,7 +945,7 @@ data class WorkLocation(
     val address: String?,
     val latitude: Double,
     val longitude: Double,
-    val radiusMeters: Int   // Default: 500 meters
+    val radiusMeters: Int   // Default: 500 meters from Phase 1
 )
 ```
 
@@ -854,6 +956,7 @@ import android.location.Location
 object LocationUtils {
     /**
      * Calculate distance between two coordinates in meters
+     * Uses Android's built-in distanceBetween (Haversine formula)
      */
     fun calculateDistance(
         lat1: Double, lon1: Double,
@@ -873,7 +976,7 @@ object LocationUtils {
         workLocation: WorkLocation?
     ): Pair<Boolean, Float?> {
         if (workLocation == null) {
-            // No work location assigned, allow attendance anywhere
+            // No work location assigned by admin, allow attendance anywhere
             return Pair(true, null)
         }
         
@@ -884,6 +987,18 @@ object LocationUtils {
         
         val isWithinRange = distance <= workLocation.radiusMeters
         return Pair(isWithinRange, distance)
+    }
+    
+    /**
+     * Detect if mock location is enabled (GPS spoofing prevention)
+     */
+    fun isMockLocationEnabled(location: Location): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            location.isMock
+        } else {
+            @Suppress("DEPRECATION")
+            location.isFromMockProvider
+        }
     }
 }
 ```
