@@ -67,6 +67,14 @@ export async function GET(request: NextRequest) {
       ? employee.work_location[0] 
       : employee.work_location
 
+    // Handle face_templates (could be null, single object, or array)
+    const faceTemplates = employee.face_templates 
+      ? (Array.isArray(employee.face_templates) ? employee.face_templates : [employee.face_templates])
+      : []
+    
+    const hasEnrolledFace = faceTemplates.length > 0
+    const activeFaceTemplates = faceTemplates.filter((ft: { is_active: boolean }) => ft.is_active).length
+
     return successResponse({
       employee: {
         id: employee.id,
@@ -74,8 +82,8 @@ export async function GET(request: NextRequest) {
         fullName: employee.full_name,
         email: employee.email,
         department: employee.department,
-        hasEnrolledFace: employee.face_templates && employee.face_templates.length > 0,
-        activeFaceTemplates: employee.face_templates?.filter((ft: { is_active: boolean }) => ft.is_active).length || 0,
+        hasEnrolledFace,
+        activeFaceTemplates,
         workLocation: workLocation ? {
           id: workLocation.id,
           name: workLocation.name,
