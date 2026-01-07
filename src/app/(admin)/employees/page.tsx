@@ -33,7 +33,8 @@ import {
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
-import { Plus, Search, Pencil, Trash2, UserPlus, Users, MapPin } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, UserPlus, Users, MapPin, ScanFace } from 'lucide-react'
+import { FaceEnrollmentDialog } from '@/components/employees/FaceEnrollmentDialog'
 
 interface WorkLocation {
   id: string
@@ -53,6 +54,7 @@ interface Employee {
   workLocationId: string | null
   workLocationName: string | null
   active: boolean
+  hasFaceEnrolled: boolean
   createdAt: string
 }
 
@@ -84,6 +86,7 @@ function EmployeesPageContent() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [isFaceEnrollOpen, setIsFaceEnrollOpen] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [formLoading, setFormLoading] = useState(false)
   
@@ -425,6 +428,7 @@ function EmployeesPageContent() {
                     <TableHead>Location</TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Face</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -464,8 +468,34 @@ function EmployeesPageContent() {
                           {emp.active ? 'Active' : 'Inactive'}
                         </Badge>
                       </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {emp.hasFaceEnrolled ? (
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              <ScanFace className="h-3 w-3 mr-1" />
+                              Enrolled
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                              <ScanFace className="h-3 w-3 mr-1" />
+                              Not Enrolled
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title={emp.hasFaceEnrolled ? "Re-enroll Face" : "Enroll Face"}
+                            onClick={() => {
+                              setSelectedEmployee(emp)
+                              setIsFaceEnrollOpen(true)
+                            }}
+                          >
+                            <ScanFace className="h-4 w-4 text-blue-500" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -642,6 +672,22 @@ function EmployeesPageContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Face Enrollment Dialog */}
+      {selectedEmployee && (
+        <FaceEnrollmentDialog
+          open={isFaceEnrollOpen}
+          onOpenChange={setIsFaceEnrollOpen}
+          employee={{
+            id: selectedEmployee.id,
+            fullName: selectedEmployee.fullName,
+            employeeCode: selectedEmployee.employeeCode,
+          }}
+          onSuccess={() => {
+            fetchEmployees()
+          }}
+        />
+      )}
     </div>
   )
 }

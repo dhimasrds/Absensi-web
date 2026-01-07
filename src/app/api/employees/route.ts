@@ -26,10 +26,10 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createServerSupabaseClient()
     
-    // Build query with work_location join
+    // Build query with work_location and face_templates join
     let dbQuery = supabase
       .from('employees')
-      .select('*, work_location:work_locations(id, name)', { count: 'exact' })
+      .select('*, work_location:work_locations(id, name), face_templates(id)', { count: 'exact' })
 
     // Search filter
     if (query.q) {
@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
     // Transform response to match frontend expectations
     const transformedData = data?.map((emp) => {
       const workLocation = emp.work_location as { id: string; name: string } | null
+      const faceTemplates = emp.face_templates as { id: string }[] | null
       return {
         id: emp.id,
         employeeCode: emp.employee_id,
@@ -67,6 +68,7 @@ export async function GET(request: NextRequest) {
         workLocationId: emp.work_location_id,
         workLocationName: workLocation?.name || null,
         active: emp.is_active,
+        hasFaceEnrolled: Array.isArray(faceTemplates) && faceTemplates.length > 0,
         createdAt: emp.created_at,
         updatedAt: emp.updated_at,
       }
