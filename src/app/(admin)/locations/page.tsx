@@ -56,6 +56,7 @@ function LocationsPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   
+  const [mounted, setMounted] = useState(false)
   const [locations, setLocations] = useState<WorkLocation[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState(searchParams.get('q') || '')
@@ -104,6 +105,10 @@ function LocationsPageContent() {
   useEffect(() => {
     fetchLocations()
   }, [fetchLocations])
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleSearch = (value: string) => {
     setSearch(value)
@@ -256,78 +261,6 @@ function LocationsPageContent() {
     }
   }
 
-  const LocationForm = () => (
-    <div className="grid gap-4 py-4">
-      <div className="space-y-2">
-        <Label htmlFor="name">Location Name *</Label>
-        <Input
-          id="name"
-          placeholder="Head Office"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="address">Address</Label>
-        <Input
-          id="address"
-          placeholder="123 Main Street, City"
-          value={formData.address}
-          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="latitude">Latitude *</Label>
-          <Input
-            id="latitude"
-            type="number"
-            step="any"
-            placeholder="-6.2088"
-            value={formData.latitude}
-            onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="longitude">Longitude *</Label>
-          <Input
-            id="longitude"
-            type="number"
-            step="any"
-            placeholder="106.8456"
-            value={formData.longitude}
-            onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-          />
-        </div>
-      </div>
-      <Button type="button" variant="outline" onClick={getCurrentLocation} className="w-full">
-        <Navigation className="mr-2 h-4 w-4" />
-        Use Current Location
-      </Button>
-      <div className="space-y-2">
-        <Label htmlFor="radiusMeters">Radius (meters) *</Label>
-        <Input
-          id="radiusMeters"
-          type="number"
-          placeholder="500"
-          value={formData.radiusMeters}
-          onChange={(e) => setFormData({ ...formData, radiusMeters: e.target.value })}
-        />
-        <p className="text-xs text-muted-foreground">
-          Employees must be within this distance to clock in
-        </p>
-      </div>
-      <div className="flex items-center space-x-2">
-        <Switch
-          id="isActive"
-          checked={formData.isActive}
-          onCheckedChange={(checked: boolean) => setFormData({ ...formData, isActive: checked })}
-        />
-        <Label htmlFor="isActive">Active</Label>
-      </div>
-    </div>
-  )
-
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -336,17 +269,18 @@ function LocationsPageContent() {
           <h1 className="text-2xl font-bold text-gray-900">Work Locations</h1>
           <p className="text-gray-500">Manage work locations for attendance geofencing</p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={(open) => {
-          setIsCreateOpen(open)
-          if (!open) resetForm()
-        }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Location
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
+        {mounted ? (
+          <Dialog open={isCreateOpen} onOpenChange={(open) => {
+            setIsCreateOpen(open)
+            if (!open) resetForm()
+          }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Location
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
@@ -356,7 +290,76 @@ function LocationsPageContent() {
                 Create a new work location for attendance tracking.
               </DialogDescription>
             </DialogHeader>
-            <LocationForm />
+            {/* Form Fields - Inline to prevent focus loss */}
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="create-name">Location Name *</Label>
+                <Input
+                  id="create-name"
+                  placeholder="Head Office"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-address">Address</Label>
+                <Input
+                  id="create-address"
+                  placeholder="123 Main Street, City"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="create-latitude">Latitude *</Label>
+                  <Input
+                    id="create-latitude"
+                    type="number"
+                    step="any"
+                    placeholder="-6.2088"
+                    value={formData.latitude}
+                    onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="create-longitude">Longitude *</Label>
+                  <Input
+                    id="create-longitude"
+                    type="number"
+                    step="any"
+                    placeholder="106.8456"
+                    value={formData.longitude}
+                    onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                  />
+                </div>
+              </div>
+              <Button type="button" variant="outline" onClick={getCurrentLocation} className="w-full">
+                <Navigation className="mr-2 h-4 w-4" />
+                Use Current Location
+              </Button>
+              <div className="space-y-2">
+                <Label htmlFor="create-radiusMeters">Radius (meters) *</Label>
+                <Input
+                  id="create-radiusMeters"
+                  type="number"
+                  placeholder="500"
+                  value={formData.radiusMeters}
+                  onChange={(e) => setFormData({ ...formData, radiusMeters: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Employees must be within this distance to clock in
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="create-isActive"
+                  checked={formData.isActive}
+                  onCheckedChange={(checked: boolean) => setFormData({ ...formData, isActive: checked })}
+                />
+                <Label htmlFor="create-isActive">Active</Label>
+              </div>
+            </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                 Cancel
@@ -367,6 +370,12 @@ function LocationsPageContent() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        ) : (
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Location
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -508,13 +517,14 @@ function LocationsPageContent() {
       </Card>
 
       {/* Edit Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={(open) => {
-        setIsEditOpen(open)
-        if (!open) {
-          setSelectedLocation(null)
-          resetForm()
-        }
-      }}>
+      {mounted && (
+        <Dialog open={isEditOpen} onOpenChange={(open) => {
+          setIsEditOpen(open)
+          if (!open) {
+            setSelectedLocation(null)
+            resetForm()
+          }
+        }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -525,7 +535,76 @@ function LocationsPageContent() {
               Update the work location details.
             </DialogDescription>
           </DialogHeader>
-          <LocationForm />
+          {/* Form Fields - Inline to prevent focus loss */}
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Location Name *</Label>
+              <Input
+                id="edit-name"
+                placeholder="Head Office"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-address">Address</Label>
+              <Input
+                id="edit-address"
+                placeholder="123 Main Street, City"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-latitude">Latitude *</Label>
+                <Input
+                  id="edit-latitude"
+                  type="number"
+                  step="any"
+                  placeholder="-6.2088"
+                  value={formData.latitude}
+                  onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-longitude">Longitude *</Label>
+                <Input
+                  id="edit-longitude"
+                  type="number"
+                  step="any"
+                  placeholder="106.8456"
+                  value={formData.longitude}
+                  onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                />
+              </div>
+            </div>
+            <Button type="button" variant="outline" onClick={getCurrentLocation} className="w-full">
+              <Navigation className="mr-2 h-4 w-4" />
+              Use Current Location
+            </Button>
+            <div className="space-y-2">
+              <Label htmlFor="edit-radiusMeters">Radius (meters) *</Label>
+              <Input
+                id="edit-radiusMeters"
+                type="number"
+                placeholder="500"
+                value={formData.radiusMeters}
+                onChange={(e) => setFormData({ ...formData, radiusMeters: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Employees must be within this distance to clock in
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="edit-isActive"
+                checked={formData.isActive}
+                onCheckedChange={(checked: boolean) => setFormData({ ...formData, isActive: checked })}
+              />
+              <Label htmlFor="edit-isActive">Active</Label>
+            </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
               Cancel
@@ -536,27 +615,30 @@ function LocationsPageContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
 
       {/* Delete Dialog */}
-      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Location</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete &quot;{selectedLocation?.name}&quot;? 
-              This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={formLoading}>
-              {formLoading ? 'Deleting...' : 'Delete'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {mounted && (
+        <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Location</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete &quot;{selectedLocation?.name}&quot;? 
+                This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleDelete} disabled={formLoading}>
+                {formLoading ? 'Deleting...' : 'Delete'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
