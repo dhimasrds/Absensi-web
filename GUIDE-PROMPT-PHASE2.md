@@ -22,6 +22,109 @@ WAJIB mengikuti urutan milestone dan spesifikasi di bawah. Jangan loncat.
 - Implementasi offline-first architecture.
 
 ====================================================
+## 0.1) PREREQUISITES & ASSUMPTIONS
+====================================================
+
+### What's Already Done in Phase 1 (Backend)
+
+Sebelum memulai Phase 2, pastikan Phase 1 sudah menyediakan:
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| **Supabase Project** | ✅ Ready | Database PostgreSQL + Auth + Storage |
+| **Web Admin** | ✅ Ready | Next.js app untuk admin management |
+| **Employee Data** | ✅ Ready | CRUD employees via `/employees` page |
+| **Device Registration** | ✅ Ready | CRUD devices via `/devices` page |
+| **Work Locations** | ✅ Ready | CRUD locations via `/locations` page |
+| **Face Templates** | ✅ Ready | Face enrollment via admin |
+| **Mobile APIs** | ✅ Ready | `/api/mobile/*` endpoints |
+| **Storage Bucket** | ✅ Ready | `attendance-proofs` bucket |
+
+### Admin Setup Before Mobile App Can Work
+
+> **PENTING**: Sebelum employee bisa login via mobile app, admin HARUS:
+
+```
+1. CREATE EMPLOYEE
+   - Buka Web Admin → /employees
+   - Add new employee dengan data lengkap
+   - Catat employee_id yang di-generate
+
+2. REGISTER DEVICE  
+   - Buka Web Admin → /devices
+   - Add new device dengan:
+     • device_id: String unik dari Android (e.g., "ANDROID-XXX-123")
+     • employee_id: Link ke employee yang akan pakai device ini
+     • label: Nama device (e.g., "Samsung A52 - John")
+   - Set status: ACTIVE
+
+3. ENROLL FACE (WAJIB untuk face login)
+   - Admin capture wajah employee
+   - Extract embedding 128-dim menggunakan tool/script
+   - Insert ke table `face_templates` via SQL/API:
+     INSERT INTO face_templates (employee_id, embedding, version, quality_score)
+     VALUES ('uuid', '[0.1, 0.2, ...]', 'EMBEDDING_V1', 0.95);
+
+4. ASSIGN WORK LOCATION (Optional)
+   - Buka Web Admin → /employees → Edit
+   - Pilih Work Location dari dropdown
+   - Jika tidak di-assign, employee bisa absen dari mana saja
+```
+
+### Device ID Generation (Android)
+
+Android app harus generate device ID yang **unik dan persistent**:
+
+```kotlin
+object DeviceIdGenerator {
+    fun getDeviceId(context: Context): String {
+        val prefs = context.getSharedPreferences("device_prefs", Context.MODE_PRIVATE)
+        var deviceId = prefs.getString("device_id", null)
+        
+        if (deviceId == null) {
+            // Generate new device ID
+            deviceId = "ANDROID-${UUID.randomUUID().toString().take(8).uppercase()}"
+            prefs.edit().putString("device_id", deviceId).apply()
+        }
+        
+        return deviceId
+    }
+}
+
+// Usage
+val deviceId = DeviceIdGenerator.getDeviceId(context)
+// Result: "ANDROID-A1B2C3D4"
+```
+
+> **NOTE**: Device ID ini harus sama persis dengan yang di-register oleh admin di Web Admin.
+> Jika tidak match, API akan return error `DEVICE_NOT_REGISTERED`.
+
+### Face Enrollment Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    FACE ENROLLMENT (PHASE 1)                    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Option A: Via Admin Tool (Recommended)                         │
+│  ─────────────────────────────────────────                      │
+│  1. Admin capture foto wajah employee                           │
+│  2. Run face embedding extraction script                        │
+│  3. Insert embedding ke database                                │
+│                                                                 │
+│  Option B: Via Mobile App Enrollment Screen (Future)            │
+│  ─────────────────────────────────────────────────              │
+│  1. Employee buka app → Enrollment mode                         │
+│  2. Capture wajah dengan liveness                               │
+│  3. POST /api/mobile/enroll-face (NOT IMPLEMENTED YET)          │
+│                                                                 │
+│  Untuk Phase 2 ini, gunakan Option A.                           │
+│  Employee TIDAK bisa self-enroll face.                          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+====================================================
 ## 1) SCOPE & GOAL
 ====================================================
 
@@ -360,6 +463,98 @@ Authorization: Bearer <access_token>
   }
 }
 ```
+
+---
+
+#### UPLOAD FOTO KE SIGNED URL (PENTING!)
+
+Setelah mendapat response dari `/upload-url`, gunakan `uploadUrl` untuk upload foto:
+
+**Upload Implementation (Kotlin + OkHttp):**
+
+```kotlin
+class StorageUploader @Inject constructor(
+    private val okHttpClient: OkHttpClient
+) {
+    /**
+     * Upload foto ke Supabase Storage via signed URL
+     * @param signedUrl URL dari response /upload-url
+     * @param imageBytes Byte array dari foto (JPEG)
+     * @param contentType MIME type (image/jpeg)
+     * @return Result<Unit>
+     */
+    suspend fun uploadImage(
+        signedUrl: String,
+        imageBytes: ByteArray,
+        contentType: String = "image/jpeg"
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val requestBody = imageBytes.toRequestBody(contentType.toMediaType())
+            
+            val request = Request.Builder()
+                .url(signedUrl)
+                .put(requestBody)  // Supabase signed URL uses PUT
+                .addHeader("Content-Type", contentType)
+                .build()
+            
+            val response = okHttpClient.newCall(request).execute()
+            
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Upload failed: ${response.code} ${response.message}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Compress and convert Bitmap to JPEG bytes
+     */
+    fun bitmapToJpegBytes(bitmap: Bitmap, quality: Int = 85): ByteArray {
+        val stream = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, quality, stream)
+        return stream.toByteArray()
+    }
+}
+```
+
+**Usage Flow:**
+
+```kotlin
+// 1. Capture foto dari camera
+val photoBitmap: Bitmap = captureFromCamera()
+
+// 2. Convert to bytes
+val photoBytes = storageUploader.bitmapToJpegBytes(photoBitmap, quality = 85)
+
+// 3. Get signed URL dari API
+val uploadUrlResponse = api.getUploadUrl(
+    UploadUrlRequest(deviceId = deviceId, contentType = "image/jpeg")
+)
+
+// 4. Upload ke signed URL
+val uploadResult = storageUploader.uploadImage(
+    signedUrl = uploadUrlResponse.data.uploadUrl,
+    imageBytes = photoBytes
+)
+
+// 5. Gunakan filePath untuk attendance request
+if (uploadResult.isSuccess) {
+    val attendanceRequest = AttendanceRequest(
+        // ... other fields
+        proofImagePath = uploadUrlResponse.data.filePath,  // Use filePath, NOT uploadUrl
+        proofImageMime = "image/jpeg"
+    )
+    api.checkIn(attendanceRequest)
+}
+```
+
+> **IMPORTANT**: 
+> - `proofImagePath` di attendance request adalah `filePath` dari response, BUKAN `uploadUrl`
+> - Signed URL expires dalam 5 menit, upload segera setelah dapat URL
+> - Gunakan PUT method untuk upload, bukan POST
 
 ---
 
@@ -837,6 +1032,174 @@ data class AppInfo(
 )
 ```
 
+---
+
+#### TOKEN MANAGEMENT (PENTING!)
+
+**JWT Token Structure:**
+
+Response dari `/face-login` berisi access token dan refresh token:
+
+```json
+{
+  "session": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresIn": 3600
+  }
+}
+```
+
+**Access Token Claims (decoded):**
+```json
+{
+  "sub": "employee-uuid",
+  "employeeId": "EMP-001",
+  "deviceId": "device-uuid",
+  "sessionId": "session-uuid",
+  "iat": 1704614400,
+  "exp": 1704618000
+}
+```
+
+| Claim | Description |
+|-------|-------------|
+| `sub` | Employee UUID |
+| `employeeId` | Employee code (e.g., "EMP-001") |
+| `deviceId` | Device UUID (from database) |
+| `sessionId` | Session UUID for this login |
+| `iat` | Issued at (Unix timestamp) |
+| `exp` | Expires at (Unix timestamp) - 1 hour |
+
+**TokenManager.kt (Complete Implementation):**
+```kotlin
+@Singleton
+class TokenManager @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
+    private val masterKey = MasterKey.Builder(context)
+        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+        .build()
+    
+    private val prefs = EncryptedSharedPreferences.create(
+        context,
+        "secure_tokens",
+        masterKey,
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+    )
+    
+    companion object {
+        private const val KEY_ACCESS_TOKEN = "access_token"
+        private const val KEY_REFRESH_TOKEN = "refresh_token"
+        private const val KEY_EXPIRES_AT = "expires_at"
+    }
+    
+    fun saveTokens(accessToken: String, refreshToken: String, expiresIn: Int) {
+        val expiresAt = System.currentTimeMillis() + (expiresIn * 1000)
+        prefs.edit()
+            .putString(KEY_ACCESS_TOKEN, accessToken)
+            .putString(KEY_REFRESH_TOKEN, refreshToken)
+            .putLong(KEY_EXPIRES_AT, expiresAt)
+            .apply()
+    }
+    
+    fun getAccessToken(): String? = prefs.getString(KEY_ACCESS_TOKEN, null)
+    
+    fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
+    
+    fun isTokenExpired(): Boolean {
+        val expiresAt = prefs.getLong(KEY_EXPIRES_AT, 0)
+        // Consider expired 5 minutes before actual expiry (buffer)
+        return System.currentTimeMillis() > (expiresAt - 5 * 60 * 1000)
+    }
+    
+    fun clearTokens() {
+        prefs.edit().clear().apply()
+    }
+    
+    fun hasValidSession(): Boolean {
+        return getAccessToken() != null && !isTokenExpired()
+    }
+}
+```
+
+**AuthInterceptor.kt (Auto Refresh):**
+```kotlin
+@Singleton
+class AuthInterceptor @Inject constructor(
+    private val tokenManager: TokenManager,
+    private val authApi: Lazy<AuthApi>  // Lazy to avoid circular dependency
+) : Interceptor {
+    
+    private val mutex = Mutex()
+    
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val originalRequest = chain.request()
+        
+        // Skip auth for login/refresh endpoints
+        if (originalRequest.url.encodedPath.contains("/auth/")) {
+            return chain.proceed(originalRequest)
+        }
+        
+        val accessToken = tokenManager.getAccessToken()
+            ?: return chain.proceed(originalRequest)
+        
+        // Add token to request
+        val authenticatedRequest = originalRequest.newBuilder()
+            .addHeader("Authorization", "Bearer $accessToken")
+            .build()
+        
+        val response = chain.proceed(authenticatedRequest)
+        
+        // If 401, try to refresh token
+        if (response.code == 401) {
+            response.close()
+            
+            // Use mutex to prevent multiple simultaneous refreshes
+            return runBlocking {
+                mutex.withLock {
+                    val newToken = refreshToken()
+                    if (newToken != null) {
+                        // Retry with new token
+                        val newRequest = originalRequest.newBuilder()
+                            .addHeader("Authorization", "Bearer $newToken")
+                            .build()
+                        chain.proceed(newRequest)
+                    } else {
+                        // Refresh failed, return original 401
+                        response
+                    }
+                }
+            }
+        }
+        
+        return response
+    }
+    
+    private suspend fun refreshToken(): String? {
+        val refreshToken = tokenManager.getRefreshToken() ?: return null
+        
+        return try {
+            val response = authApi.get().refreshToken(
+                RefreshTokenRequest(refreshToken)
+            )
+            tokenManager.saveTokens(
+                response.data.accessToken,
+                refreshToken,  // Keep same refresh token
+                response.data.expiresIn
+            )
+            response.data.accessToken
+        } catch (e: Exception) {
+            tokenManager.clearTokens()
+            null
+        }
+    }
+}
+```
+
+---
+
 **Login Flow**:
 ```
 1. User buka app → Check stored token
@@ -1217,14 +1580,240 @@ data class PendingAttendanceEntity(
     val capturedAt: String,
     val matchScore: Float?,
     val livenessScore: Float?,
-    val proofImagePath: String?,
+    val proofImagePath: String?,  // Path di Supabase Storage (setelah upload)
     val proofImageMime: String?,
+    val localPhotoUri: String?,   // Local file URI (sebelum upload)
     val note: String?,
-    val status: String,           // PENDING, SYNCING, SYNCED, FAILED
+    val status: String,           // PENDING, UPLOADING, SYNCING, SYNCED, FAILED
     val retryCount: Int = 0,
+    val lastError: String? = null,
     val createdAt: Long = System.currentTimeMillis()
 )
 ```
+
+---
+
+#### OFFLINE PHOTO STORAGE (PENTING!)
+
+Saat offline, foto harus disimpan lokal terlebih dahulu:
+
+**LocalPhotoStorage.kt:**
+```kotlin
+@Singleton
+class LocalPhotoStorage @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
+    private val photosDir = File(context.filesDir, "pending_photos")
+    
+    init {
+        if (!photosDir.exists()) {
+            photosDir.mkdirs()
+        }
+    }
+    
+    /**
+     * Save photo locally for offline attendance
+     * @param clientCaptureId UUID untuk nama file
+     * @param bitmap Foto dari camera
+     * @return URI file lokal
+     */
+    suspend fun savePhoto(
+        clientCaptureId: String,
+        bitmap: Bitmap,
+        quality: Int = 85
+    ): Uri = withContext(Dispatchers.IO) {
+        val file = File(photosDir, "$clientCaptureId.jpg")
+        
+        FileOutputStream(file).use { outputStream ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream)
+        }
+        
+        Uri.fromFile(file)
+    }
+    
+    /**
+     * Get photo bytes for upload
+     */
+    suspend fun getPhotoBytes(clientCaptureId: String): ByteArray? = 
+        withContext(Dispatchers.IO) {
+            val file = File(photosDir, "$clientCaptureId.jpg")
+            if (file.exists()) {
+                file.readBytes()
+            } else {
+                null
+            }
+        }
+    
+    /**
+     * Delete photo after successful sync
+     */
+    suspend fun deletePhoto(clientCaptureId: String) = withContext(Dispatchers.IO) {
+        val file = File(photosDir, "$clientCaptureId.jpg")
+        if (file.exists()) {
+            file.delete()
+        }
+    }
+    
+    /**
+     * Clean up old photos (older than 7 days)
+     */
+    suspend fun cleanupOldPhotos() = withContext(Dispatchers.IO) {
+        val sevenDaysAgo = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000)
+        photosDir.listFiles()?.forEach { file ->
+            if (file.lastModified() < sevenDaysAgo) {
+                file.delete()
+            }
+        }
+    }
+}
+```
+
+**Offline Attendance Flow (Complete):**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    OFFLINE ATTENDANCE FLOW                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. USER CAPTURES ATTENDANCE                                    │
+│     ├── Generate clientCaptureId (UUID)                         │
+│     ├── Capture foto + face embedding                           │
+│     ├── Save foto lokal: /files/pending_photos/{uuid}.jpg       │
+│     └── Save ke Room: PendingAttendanceEntity                   │
+│         • status = "PENDING"                                    │
+│         • localPhotoUri = file:///.../{uuid}.jpg                │
+│         • proofImagePath = null (belum upload)                  │
+│                                                                 │
+│  2. SHOW PENDING INDICATOR                                      │
+│     └── "1 attendance belum tersinkron"                         │
+│                                                                 │
+│  3. WORKMANAGER PERIODIC SYNC (setiap 15 menit)                 │
+│     └── Check: isNetworkAvailable?                              │
+│                                                                 │
+│  4. WHEN ONLINE - SYNC PROCESS                                  │
+│     ├── Get all PENDING attendance from Room                    │
+│     ├── For each pending:                                       │
+│     │   ├── Update status = "UPLOADING"                         │
+│     │   ├── Get signed URL from /upload-url                     │
+│     │   ├── Upload foto ke signed URL                           │
+│     │   ├── Update proofImagePath = response.filePath           │
+│     │   ├── Update status = "SYNCING"                           │
+│     │   ├── Call /check-in or /check-out API                    │
+│     │   ├── Handle response:                                    │
+│     │   │   ├── 201 Success → status = "SYNCED"                 │
+│     │   │   ├── 200 Idempotent → status = "SYNCED" (OK!)        │
+│     │   │   └── Error → status = "FAILED", retryCount++         │
+│     │   └── Delete local photo if SYNCED                        │
+│     └── Show notification: "X attendance synced"                │
+│                                                                 │
+│  5. RETRY FAILED (max 3x)                                       │
+│     ├── If retryCount >= 3, mark as permanently FAILED          │
+│     └── User can manually retry from History screen             │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**AttendanceSyncWorker.kt:**
+```kotlin
+@HiltWorker
+class AttendanceSyncWorker @AssistedInject constructor(
+    @Assisted context: Context,
+    @Assisted params: WorkerParameters,
+    private val pendingAttendanceDao: PendingAttendanceDao,
+    private val localPhotoStorage: LocalPhotoStorage,
+    private val storageUploader: StorageUploader,
+    private val apiService: ApiService,
+    private val tokenManager: TokenManager
+) : CoroutineWorker(context, params) {
+    
+    override suspend fun doWork(): Result {
+        val pendingList = pendingAttendanceDao.getAllPending()
+        
+        if (pendingList.isEmpty()) {
+            return Result.success()
+        }
+        
+        var syncedCount = 0
+        
+        for (pending in pendingList) {
+            try {
+                // Skip if max retries exceeded
+                if (pending.retryCount >= 3) continue
+                
+                // Step 1: Upload photo if not uploaded yet
+                var proofImagePath = pending.proofImagePath
+                if (proofImagePath == null && pending.localPhotoUri != null) {
+                    pendingAttendanceDao.updateStatus(pending.clientCaptureId, "UPLOADING")
+                    
+                    val photoBytes = localPhotoStorage.getPhotoBytes(pending.clientCaptureId)
+                    if (photoBytes != null) {
+                        val uploadUrlResponse = apiService.getUploadUrl(
+                            UploadUrlRequest(pending.deviceId, "image/jpeg")
+                        )
+                        
+                        storageUploader.uploadImage(
+                            uploadUrlResponse.data.uploadUrl,
+                            photoBytes
+                        ).getOrThrow()
+                        
+                        proofImagePath = uploadUrlResponse.data.filePath
+                        pendingAttendanceDao.updateProofImagePath(
+                            pending.clientCaptureId, 
+                            proofImagePath
+                        )
+                    }
+                }
+                
+                // Step 2: Call attendance API
+                pendingAttendanceDao.updateStatus(pending.clientCaptureId, "SYNCING")
+                
+                val request = AttendanceRequest(
+                    deviceId = pending.deviceId,
+                    clientCaptureId = pending.clientCaptureId,
+                    capturedAt = pending.capturedAt,
+                    verificationMethod = "FACE",
+                    matchScore = pending.matchScore,
+                    livenessScore = pending.livenessScore,
+                    note = pending.note,
+                    proofImagePath = proofImagePath,
+                    proofImageMime = pending.proofImageMime
+                )
+                
+                val response = if (pending.type == "CHECK_IN") {
+                    apiService.checkIn(request)
+                } else {
+                    apiService.checkOut(request)
+                }
+                
+                // Step 3: Mark as synced and cleanup
+                pendingAttendanceDao.updateStatus(pending.clientCaptureId, "SYNCED")
+                localPhotoStorage.deletePhoto(pending.clientCaptureId)
+                syncedCount++
+                
+            } catch (e: Exception) {
+                // Mark as failed, increment retry count
+                pendingAttendanceDao.markFailed(
+                    pending.clientCaptureId,
+                    e.message ?: "Unknown error"
+                )
+            }
+        }
+        
+        // Show notification if any synced
+        if (syncedCount > 0) {
+            showSyncNotification(syncedCount)
+        }
+        
+        return Result.success()
+    }
+    
+    private fun showSyncNotification(count: Int) {
+        // ... notification implementation
+    }
+}
+```
+
+---
 
 **Offline Flow**:
 ```
