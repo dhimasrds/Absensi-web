@@ -98,6 +98,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (input.employeeId !== undefined) updateData.employee_id = input.employeeId
     if (input.fullName !== undefined) updateData.full_name = input.fullName
     if (input.email !== undefined) updateData.email = input.email
+    if (input.phoneNumber !== undefined) updateData.phone_number = input.phoneNumber
+    if (input.jobTitle !== undefined) updateData.job_title = input.jobTitle
     if (input.department !== undefined) updateData.department = input.department
     if (input.isActive !== undefined) updateData.is_active = input.isActive
     if (input.workLocationId !== undefined) updateData.work_location_id = input.workLocationId

@@ -40,7 +40,10 @@ create table public.employees (
   employee_id text unique not null,
   full_name text not null,
   email text unique,
+  phone_number text,
+  job_title text,
   department text,
+  work_location_id uuid references public.work_locations(id) on delete set null,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

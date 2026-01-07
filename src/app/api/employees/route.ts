@@ -141,6 +141,8 @@ export async function POST(request: NextRequest) {
         employee_id: input.employeeId,
         full_name: input.fullName,
         email: input.email || null,
+        phone_number: input.phoneNumber || null,
+        job_title: input.jobTitle || null,
         department: input.department || null,
         is_active: input.isActive ?? true,
         work_location_id: input.workLocationId || null,
