@@ -31,10 +31,10 @@ export const mobileAttendanceSchema = z.object({
   }),
   liveness: z.object({
     provided: z.boolean(),
-    score: z.number().min(0).max(1),
+    score: z.number().min(0).max(1).optional(),
   }),
   verificationMethod: z.enum(['FACE', 'MANUAL_ADMIN']).default('FACE'),
-  note: z.string().max(500).optional(),
+  note: z.string().max(500).nullable().optional(),
   proofImagePath: z.string().optional(),
   proofImageMime: z.string().optional(),
 })
