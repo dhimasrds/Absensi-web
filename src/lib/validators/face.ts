@@ -11,6 +11,8 @@ export const enrollFaceSchema = z.object({
     embedding: z.array(z.number()).length(128, 'Embedding must have exactly 128 dimensions'),
   }),
   qualityScore: z.number().min(0).max(1).optional().nullable(),
+  // Face photo as base64 data URL (optional but recommended)
+  facePhotoBase64: z.string().optional().nullable(),
 })
 
 export type EnrollFaceInput = z.infer<typeof enrollFaceSchema>

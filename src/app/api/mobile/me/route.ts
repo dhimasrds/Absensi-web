@@ -34,6 +34,8 @@ export async function GET(request: NextRequest) {
           id,
           template_version,
           is_active,
+          face_photo_path,
+          face_photo_mime,
           created_at
         )
       `)
@@ -113,6 +115,22 @@ export async function GET(request: NextRequest) {
     const hasEnrolledFace = faceTemplates.length > 0
     const activeFaceTemplates = faceTemplates.filter((ft: { is_active: boolean }) => ft.is_active).length
 
+    // Get face photo URL if available
+    let facePhotoUrl: string | null = null
+    const activeFaceTemplate = faceTemplates.find((ft: { is_active: boolean; face_photo_path: string | null }) => 
+      ft.is_active && ft.face_photo_path
+    )
+    
+    if (activeFaceTemplate?.face_photo_path) {
+      const { data: signedUrl } = await supabase.storage
+        .from('face-photos')
+        .createSignedUrl(activeFaceTemplate.face_photo_path, 86400) // 24 hours expiry for profile photo
+      
+      if (signedUrl) {
+        facePhotoUrl = signedUrl.signedUrl
+      }
+    }
+
     return successResponse({
       employee: {
         id: employee.id,
@@ -122,6 +140,7 @@ export async function GET(request: NextRequest) {
         department: employee.department,
         hasEnrolledFace,
         activeFaceTemplates,
+        facePhotoUrl, // Profile photo URL for mobile app
         workLocation: workLocation ? {
           id: workLocation.id,
           name: workLocation.name,

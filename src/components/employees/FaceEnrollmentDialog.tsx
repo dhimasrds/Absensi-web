@@ -57,6 +57,7 @@ export function FaceEnrollmentDialog({
   const [error, setError] = useState<string | null>(null)
   const [modelsLoaded, setModelsLoaded] = useState(false)
   const [loadingModels, setLoadingModels] = useState(false)
+  const [enrolledPhotoUrl, setEnrolledPhotoUrl] = useState<string | null>(null)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
@@ -107,6 +108,7 @@ export function FaceEnrollmentDialog({
       setEmbedding(null)
       setDetectionResult(null)
       setError(null)
+      setEnrolledPhotoUrl(null)
     }
   }, [open])
 
@@ -222,10 +224,12 @@ export function FaceEnrollmentDialog({
           type: 'EMBEDDING_V1' as const,
           embedding: embedding,
         },
+        facePhotoBase64: imageUrl, // Send base64 photo
       }
       
       console.log('Enrolling face with data:', {
         ...requestBody,
+        facePhotoBase64: imageUrl ? `[${imageUrl.length} chars]` : null,
         payload: { ...requestBody.payload, embedding: `[${embedding.length} dimensions]` }
       })
       
@@ -242,6 +246,11 @@ export function FaceEnrollmentDialog({
 
       if (!response.ok) {
         throw new Error(responseData.error?.message || responseData.error?.details || 'Failed to enroll face')
+      }
+
+      // Store the enrolled face photo URL from response
+      if (responseData.data?.facePhotoUrl) {
+        setEnrolledPhotoUrl(responseData.data.facePhotoUrl)
       }
 
       setStep('success')
@@ -265,6 +274,7 @@ export function FaceEnrollmentDialog({
     setEmbedding(null)
     setDetectionResult(null)
     setError(null)
+    setEnrolledPhotoUrl(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -407,6 +417,22 @@ export function FaceEnrollmentDialog({
                   {employee?.fullName} sekarang bisa login dengan face recognition
                 </p>
               </div>
+              
+              {/* Preview enrolled face photo */}
+              {enrolledPhotoUrl && (
+                <div className="w-full space-y-2">
+                  <div className="relative w-full aspect-square max-w-[200px] mx-auto bg-gray-100 rounded-lg overflow-hidden border-2 border-green-200">
+                    <img
+                      src={enrolledPhotoUrl}
+                      alt="Enrolled face"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <p className="text-xs text-center text-gray-500">
+                    Foto profil berhasil disimpan
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
