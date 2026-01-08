@@ -3,11 +3,12 @@ import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { successResponse, errors } from '@/lib/api/response'
 import { requireAdmin } from '@/lib/auth/adminGuard'
 
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
 // GET /api/attendance/[id]/proof-url - Get signed URL for attendance proof image (Admin only)
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   let id: string | undefined
   
   try {

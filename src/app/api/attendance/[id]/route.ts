@@ -3,11 +3,12 @@ import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { successResponse, errors } from '@/lib/api/response'
 import { requireAdmin } from '@/lib/auth/adminGuard'
 
+interface RouteParams {
+  params: Promise<{ id: string }>
+}
+
 // GET /api/attendance/[id] - Get single attendance record (Admin only)
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     // Verify admin
     const authResult = await requireAdmin()
