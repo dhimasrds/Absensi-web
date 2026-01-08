@@ -46,6 +46,7 @@ Sebelum memulai Phase 2, pastikan Phase 1 sudah menyediakan:
 
 | Update | Date | Impact |
 |--------|------|--------|
+| **Face Verification for Attendance** | 2026-01-08 | Check-in/check-out sekarang WAJIB face matching. Request format sama seperti face-login dengan embedding. |
 | **Auto Device Registration** | 2026-01-08 | Device otomatis terdaftar saat face login pertama. Manual registration optional. |
 | **Phone & Job Title Fields** | 2026-01-08 | Employees table sekarang punya `phone_number` dan `job_title`. Hanya untuk Web Admin, tidak di-return ke mobile. |
 | **Face Match Threshold** | 2026-01-08 | Lowered dari 0.80 → **0.70** untuk matching yang lebih lenient. |
@@ -588,7 +589,11 @@ if (uploadResult.isSuccess) {
 
 #### POST /api/mobile/attendance/check-in
 
-Record check-in attendance.
+Record check-in attendance **with face verification**.
+
+> **FACE VERIFICATION REQUIRED**: 
+> Check-in now requires face matching (same as login flow).
+> Face embedding must match the employee from JWT token.
 
 **Headers:**
 ```
@@ -600,12 +605,18 @@ Authorization: Bearer <access_token>
 {
   "deviceId": "ANDROID-XXX-123",
   "clientCaptureId": "uuid-unique-per-capture",
-  "capturedAt": "2026-01-07T08:30:00.000Z",
+  "capturedAt": "2026-01-08T08:30:00.000Z",
+  "payload": {
+    "type": "EMBEDDING_V1",
+    "embedding": [0.123, -0.456, ...]  // Array of 128 floats
+  },
+  "liveness": {
+    "provided": true,
+    "score": 0.95
+  },
   "verificationMethod": "FACE",
-  "matchScore": 0.9542,
-  "livenessScore": 0.9821,
   "note": "Optional note",
-  "proofImagePath": "employee-uuid/2026-01-07/uuid.jpg",
+  "proofImagePath": "employee-uuid/2026-01-08/uuid.jpg",
   "proofImageMime": "image/jpeg"
 }
 ```
@@ -616,7 +627,7 @@ Authorization: Bearer <access_token>
   "data": {
     "id": "uuid",
     "attendanceType": "CHECK_IN",
-    "capturedAt": "2026-01-07T08:30:00.000Z",
+    "capturedAt": "2026-01-08T08:30:00.000Z",
     "verificationStatus": "VERIFIED"
   },
   "meta": {
@@ -631,7 +642,7 @@ Authorization: Bearer <access_token>
   "data": {
     "id": "uuid",
     "attendanceType": "CHECK_IN",
-    "capturedAt": "2026-01-07T08:30:00.000Z",
+    "capturedAt": "2026-01-08T08:30:00.000Z",
     "message": "Attendance already recorded",
     "idempotent": true
   },
@@ -643,6 +654,14 @@ Authorization: Bearer <access_token>
 
 **Error Response:**
 ```json
+// 401 - Face not recognized or doesn't match token
+{
+  "error": {
+    "code": "FACE_NOT_RECOGNIZED",
+    "message": "Face not recognized or below threshold"
+  }
+}
+
 // 409 - Already checked in today
 {
   "error": {
@@ -656,7 +675,11 @@ Authorization: Bearer <access_token>
 
 #### POST /api/mobile/attendance/check-out
 
-Record check-out attendance.
+Record check-out attendance **with face verification**.
+
+> **FACE VERIFICATION REQUIRED**: 
+> Check-out now requires face matching (same as login flow).
+> Face embedding must match the employee from JWT token.
 
 **Headers:**
 ```
@@ -668,12 +691,18 @@ Authorization: Bearer <access_token>
 {
   "deviceId": "ANDROID-XXX-123",
   "clientCaptureId": "uuid-unique-per-capture",
-  "capturedAt": "2026-01-07T17:30:00.000Z",
+  "capturedAt": "2026-01-08T17:30:00.000Z",
+  "payload": {
+    "type": "EMBEDDING_V1",
+    "embedding": [0.123, -0.456, ...]  // Array of 128 floats
+  },
+  "liveness": {
+    "provided": true,
+    "score": 0.95
+  },
   "verificationMethod": "FACE",
-  "matchScore": 0.9387,
-  "livenessScore": 0.9654,
   "note": "Optional note",
-  "proofImagePath": "employee-uuid/2026-01-07/uuid.jpg",
+  "proofImagePath": "employee-uuid/2026-01-08/uuid.jpg",
   "proofImageMime": "image/jpeg"
 }
 ```
@@ -684,7 +713,7 @@ Authorization: Bearer <access_token>
   "data": {
     "id": "uuid",
     "attendanceType": "CHECK_OUT",
-    "capturedAt": "2026-01-07T17:30:00.000Z",
+    "capturedAt": "2026-01-08T17:30:00.000Z",
     "verificationStatus": "VERIFIED"
   },
   "meta": {
@@ -695,6 +724,14 @@ Authorization: Bearer <access_token>
 
 **Error Response:**
 ```json
+// 401 - Face not recognized or doesn't match token
+{
+  "error": {
+    "code": "FACE_NOT_RECOGNIZED",
+    "message": "Face not recognized or below threshold"
+  }
+}
+
 // 409 - Not checked in yet
 {
   "error": {
@@ -805,15 +842,17 @@ Authorization: Bearer <access_token>
 
 1. **Face Embedding**: Gunakan **128-dimensional** embedding (MobileFaceNet)
 2. **Face Match Threshold**: Server menggunakan threshold **0.70** (cosine similarity)
-3. **Client Capture ID**: Generate UUID baru untuk setiap capture, digunakan untuk:
+3. **Face Verification for Attendance**: Check-in dan check-out WAJIB verify face embedding (sama seperti login)
+4. **Client Capture ID**: Generate UUID baru untuk setiap capture, digunakan untuk:
    - Anti-replay attack
    - Idempotency (jika request gagal, bisa retry dengan ID yang sama)
-4. **Captured At**: Timestamp saat capture dilakukan, max skew **120 detik** dari server time
-5. **Device ID**: String unik device, generate sekali dan simpan permanen
-6. **Auto Device Registration**: Device otomatis terdaftar saat face login pertama kali berhasil
-7. **Liveness Score**: Nilai 0-1, hasil dari liveness detection
-8. **Work Location**: Dari `/api/mobile/me`, digunakan untuk geofencing validation di client
-9. **Phone Number & Job Title**: Tersedia di Web Admin untuk employee management, TIDAK di-return ke mobile API
+5. **Captured At**: Timestamp saat capture dilakukan, max skew **120 detik** dari server time
+6. **Device ID**: String unik device, generate sekali dan simpan permanen
+7. **Auto Device Registration**: Device otomatis terdaftar saat face login pertama kali berhasil
+8. **Liveness Score**: Nilai 0-1, hasil dari liveness detection
+9. **Work Location**: Dari `/api/mobile/me`, digunakan untuk geofencing validation di client
+10. **Phone Number & Job Title**: Tersedia di Web Admin untuk employee management, TIDAK di-return ke mobile API
+11. **Match Score**: Server calculate match score dari face identification, client TIDAK kirim matchScore lagi
 
 ---
 
