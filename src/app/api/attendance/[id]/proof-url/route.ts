@@ -37,8 +37,11 @@ export async function GET(
     }
 
     if (!attendance.proof_image_path) {
+      console.log('No proof_image_path for attendance:', id)
       return errors.notFound('Proof image')
     }
+
+    console.log('Fetching signed URL for path:', attendance.proof_image_path)
 
     // Generate signed URL (valid for 1 hour)
     const { data: signedUrl, error: urlError } = await supabase.storage
@@ -47,9 +50,11 @@ export async function GET(
 
     if (urlError || !signedUrl) {
       console.error('Signed URL error:', urlError)
+      console.error('Path attempted:', attendance.proof_image_path)
       return errors.internalError('Failed to generate proof URL')
     }
 
+    console.log('Successfully generated signed URL')
     return successResponse({
       attendanceId: attendance.id,
       proofUrl: signedUrl.signedUrl,

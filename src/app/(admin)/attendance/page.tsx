@@ -142,14 +142,25 @@ function AttendancePageContent() {
     
     try {
       const res = await fetch(`/api/attendance/${record.id}/proof-url`)
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        console.error('Failed to fetch proof URL:', res.status, errorData)
+        toast.error(errorData.error?.message || 'Failed to load proof image')
+        setProofLoading(false)
+        return
+      }
+      
       const data = await res.json()
       
       if (data.data?.proofUrl) {
         setProofUrl(data.data.proofUrl)
       } else {
+        console.error('No proofUrl in response:', data)
         toast.error('Failed to load proof image')
       }
-    } catch {
+    } catch (error) {
+      console.error('Error fetching proof URL:', error)
       toast.error('Failed to load proof image')
     } finally {
       setProofLoading(false)
@@ -395,6 +406,11 @@ function AttendancePageContent() {
                   src={proofUrl}
                   alt="Attendance proof"
                   className="w-full h-full object-contain"
+                  onError={(e) => {
+                    console.error('Image load error:', proofUrl)
+                    toast.error('Failed to display image')
+                    e.currentTarget.style.display = 'none'
+                  }}
                 />
               ) : (
                 <div className="text-gray-400">Failed to load image</div>
