@@ -410,8 +410,12 @@ function AttendancePageContent() {
                   src={proofUrl}
                   alt="Attendance proof"
                   className="w-full h-full object-contain"
+                  crossOrigin="anonymous"
+                  onLoad={() => console.log('Image loaded successfully:', proofUrl)}
                   onError={(e) => {
                     console.error('Image load error:', proofUrl)
+                    console.error('Image element:', e.currentTarget)
+                    console.error('Natural dimensions:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight)
                     toast.error('Failed to display image')
                     e.currentTarget.style.display = 'none'
                   }}
