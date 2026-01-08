@@ -97,9 +97,10 @@ export async function POST(request: NextRequest) {
       .from('attendance_logs')
       .insert({
         employee_id: payload.sub,  // Use payload.sub (employee UUID)
-        device_id: payload.deviceId,
-        session_id: payload.sub,  // Use employee UUID as session ID
+        device_id: payload.deviceIdString,  // Device identifier string (e.g., "ANDROID-DEV-001")
         type: 'CHECK_OUT',  // Column name is 'type', not 'attendance_type'
+        timestamp: input.capturedAt,  // Required: When the attendance was captured
+        source: 'ANDROID',  // Required: Attendance source (ANDROID or WEB_ADMIN)
         client_capture_id: input.clientCaptureId,
         captured_at: input.capturedAt,
         verification_method: input.verificationMethod,

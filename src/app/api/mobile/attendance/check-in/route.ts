@@ -97,9 +97,10 @@ export async function POST(request: NextRequest) {
       .from('attendance_logs')
       .insert({
         employee_id: payload.sub,  // Use payload.sub (employee UUID)
-        device_id: payload.deviceId,
-        session_id: payload.sub,  // Use employee UUID as session ID
+        device_id: payload.deviceIdString,  // Device ID string from JWT
         type: 'CHECK_IN',  // Column name is 'type', not 'attendance_type'
+        timestamp: input.capturedAt,  // Required timestamp field
+        source: 'ANDROID',  // Required source field
         client_capture_id: input.clientCaptureId,
         captured_at: input.capturedAt,
         verification_method: input.verificationMethod,
