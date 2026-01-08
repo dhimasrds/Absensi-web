@@ -100,7 +100,6 @@ export async function POST(request: NextRequest) {
         device_id: payload.deviceId,
         session_id: payload.sub,  // Use employee UUID as session ID
         attendance_type: 'CHECK_IN',
-        attendance_source: 'ANDROID',
         client_capture_id: input.clientCaptureId,
         captured_at: input.capturedAt,
         verification_method: input.verificationMethod,
