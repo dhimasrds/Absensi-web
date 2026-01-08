@@ -498,6 +498,235 @@ class ValidationException(message: String) : Exception(message)
 
 ---
 
+## 🧪 TESTING SCENARIOS
+
+### Scenario 1: Happy Path - Check-In Success
+**Steps:**
+1. Login dengan face recognition
+2. Tap tombol "Check-In"
+3. Camera terbuka, detect face
+4. Liveness check passed
+5. Extract 128-dim embedding
+6. Upload foto ke S3
+7. Call API check-in dengan embedding
+8. Server verify face matching (similarity ≥ 0.70)
+
+**Expected Result:**
+- ✅ Status 201 Created
+- ✅ `verificationStatus: "VERIFIED"`
+- ✅ `matchScore` ≥ 0.70
+- ✅ UI menampilkan "Check-in berhasil"
+- ✅ Attendance record tersimpan di local Room
+
+---
+
+### Scenario 2: Happy Path - Check-Out Success
+**Steps:**
+1. Sudah check-in di pagi hari
+2. Tap tombol "Check-Out"
+3. Camera terbuka, detect face
+4. Liveness check passed
+5. Extract 128-dim embedding
+6. Upload foto ke S3
+7. Call API check-out dengan embedding
+8. Server verify face matching
+
+**Expected Result:**
+- ✅ Status 201 Created
+- ✅ `verificationStatus: "VERIFIED"`
+- ✅ Session closed di server
+- ✅ UI menampilkan "Check-out berhasil"
+
+---
+
+### Scenario 3: Error - Face Not Recognized
+**Steps:**
+1. Login sebagai Employee A
+2. Tap "Check-In"
+3. Employee B mencoba absen menggunakan device Employee A
+4. Extract embedding dari wajah Employee B
+5. Call API dengan token Employee A + embedding Employee B
+
+**Expected Result:**
+- ❌ Status 401 Unauthorized
+- ❌ Error code: `FACE_NOT_RECOGNIZED`
+- ❌ UI Snackbar: "Wajah tidak dikenali"
+- ❌ Tidak ada record tersimpan
+
+**Validation:**
+- Server mendeteksi mismatch antara token.sub (Employee A) dan face embedding (Employee B)
+- Cosine similarity < 0.70 atau employee berbeda
+
+---
+
+### Scenario 4: Error - Already Checked In
+**Steps:**
+1. Check-in berhasil di pagi hari
+2. Coba check-in lagi di siang hari (belum check-out)
+
+**Expected Result:**
+- ❌ Status 409 Conflict
+- ❌ Error code: `ALREADY_CHECKED_IN`
+- ❌ UI Dialog: "Anda sudah check-in hari ini"
+- ❌ Button "Check-Out" highlighted
+
+---
+
+### Scenario 5: Error - Not Checked In
+**Steps:**
+1. Belum check-in sama sekali
+2. Langsung tap tombol "Check-Out"
+
+**Expected Result:**
+- ❌ Status 409 Conflict
+- ❌ Error code: `NOT_CHECKED_IN`
+- ❌ UI Dialog: "Anda belum check-in hari ini"
+
+---
+
+### Scenario 6: Offline Mode - Queue Check-In
+**Steps:**
+1. Matikan internet/WiFi
+2. Tap "Check-In"
+3. Face detection + embedding extraction
+4. Upload foto gagal (offline)
+5. Simpan pending attendance di Room dengan embedding
+
+**Expected Result:**
+- ✅ UI menampilkan "Check-in disimpan offline"
+- ✅ Data tersimpan di `pending_attendance` table
+- ✅ `embeddingJson` berisi JSON string dari 128 floats
+- ✅ `status: "PENDING"`
+
+---
+
+### Scenario 7: Offline Sync - Success
+**Steps:**
+1. Ada 3 pending check-in di offline queue
+2. Internet kembali tersedia
+3. WorkManager sync job triggered
+4. Parse `embeddingJson` → `List<Float>`
+5. Upload foto ke S3
+6. Call API dengan embedding
+
+**Expected Result:**
+- ✅ 3 attendance berhasil di-sync
+- ✅ Server verify face untuk setiap request
+- ✅ Status berubah dari "PENDING" → "SYNCED"
+- ✅ UI menampilkan "3 attendance berhasil disinkronkan"
+
+---
+
+### Scenario 8: Offline Sync - Face Not Recognized
+**Steps:**
+1. Offline queue berisi check-in dengan embedding tidak valid
+2. Sync job triggered
+3. API return `FACE_NOT_RECOGNIZED`
+
+**Expected Result:**
+- ❌ Status attendance → "FAILED"
+- ❌ Error message disimpan di Room
+- ❌ UI menampilkan "1 attendance gagal (wajah tidak dikenali)"
+- ❌ User bisa retry atau hapus dari queue
+
+---
+
+### Scenario 9: Idempotency - Retry dengan Same CaptureId
+**Steps:**
+1. Check-in berhasil (201)
+2. Network error di client (response tidak diterima)
+3. User retry dengan `clientCaptureId` yang sama
+4. Server detect duplicate
+
+**Expected Result:**
+- ✅ Status 200 OK (idempotent)
+- ✅ Response include `idempotent: true`
+- ✅ Return attendance yang sudah ada
+- ✅ UI menampilkan "Check-in berhasil" (tidak error)
+
+---
+
+### Scenario 10: Capture Stale - Old Timestamp
+**Steps:**
+1. Device clock tertinggal 3 menit
+2. Tap "Check-In"
+3. `capturedAt` = device time (3 menit lalu)
+4. Server validate timestamp
+
+**Expected Result:**
+- ❌ Status 400 Bad Request
+- ❌ Error code: `CAPTURE_STALE`
+- ❌ UI Dialog: "Waktu device tidak sinkron. Sinkronkan dengan server NTP"
+
+**Validation:**
+- Server reject jika `|capturedAt - serverTime| > 120 seconds`
+
+---
+
+### Scenario 11: Embedding Validation - Invalid Length
+**Steps:**
+1. Bug di face detection library
+2. Embedding hanya return 64 floats (bukan 128)
+3. Call API dengan embedding invalid
+
+**Expected Result:**
+- ❌ Status 400 Bad Request
+- ❌ Error code: `VALIDATION_ERROR`
+- ❌ Message: "expected array of 128 floats, received 64"
+- ❌ UI: Generic error + log ke Crashlytics
+
+---
+
+### Scenario 12: Device Not Registered
+**Steps:**
+1. Admin disable device via web dashboard
+2. User coba check-in
+
+**Expected Result:**
+- ❌ Status 403 Forbidden
+- ❌ Error code: `DEVICE_NOT_REGISTERED`
+- ❌ UI Dialog: "Device tidak aktif. Hubungi HR untuk aktivasi"
+
+---
+
+### Scenario 13: Edge Case - Face Detection Failed
+**Steps:**
+1. Tap "Check-In"
+2. Lighting terlalu gelap / wajah tidak terdeteksi
+3. `faceDetectionManager.detectAndExtract()` return null
+
+**Expected Result:**
+- ⚠️ UI Snackbar: "Wajah tidak terdeteksi. Coba lagi dengan pencahayaan lebih baik"
+- ⚠️ Tidak ada API call
+- ⚠️ User diminta retry
+
+---
+
+### Scenario 14: Edge Case - Multiple Faces Detected
+**Steps:**
+1. Tap "Check-In"
+2. Ada 2 orang di depan kamera
+
+**Expected Result:**
+- ⚠️ UI Warning: "Terdeteksi lebih dari 1 wajah. Pastikan hanya wajah Anda yang terlihat"
+- ⚠️ Tidak ada API call
+- ⚠️ User diminta retry sendirian
+
+---
+
+### Scenario 15: Performance - Embedding Extraction Time
+**Steps:**
+1. Measure time dari `detectAndExtract(bitmap)` call
+2. Test di device low-end (RAM 2GB)
+
+**Expected Result:**
+- ✅ Extraction time < 500ms di device mid-range
+- ✅ Extraction time < 1000ms di device low-end
+- ✅ UI menampilkan loading indicator
+- ✅ Tidak blocking main thread (Dispatchers.Default)
+
+---
+
 ## 📞 SUPPORT
 
 - **Backend API**: https://absensi-web-rouge.vercel.app
