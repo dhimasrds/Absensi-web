@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     // Find the last attendance for today
     const { data: lastAttendance } = await supabase
       .from('attendance_logs')
-      .select('id, attendance_type, captured_at')
+      .select('id, type, captured_at')  // Column name is 'type', not 'attendance_type'
       .eq('employee_id', payload.sub)  // Use payload.sub (employee UUID)
       .gte('captured_at', todayStart.toISOString())
       .lte('captured_at', todayEnd.toISOString())
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     // If last attendance is CHECK_IN, cannot check-in again
-    if (lastAttendance && lastAttendance.attendance_type === 'CHECK_IN') {
+    if (lastAttendance && lastAttendance.type === 'CHECK_IN') {
       return errors.alreadyCheckedIn()
     }
 
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
         employee_id: payload.sub,  // Use payload.sub (employee UUID)
         device_id: payload.deviceId,
         session_id: payload.sub,  // Use employee UUID as session ID
-        attendance_type: 'CHECK_IN',
+        type: 'CHECK_IN',  // Column name is 'type', not 'attendance_type'
         client_capture_id: input.clientCaptureId,
         captured_at: input.capturedAt,
         verification_method: input.verificationMethod,
@@ -121,14 +121,14 @@ export async function POST(request: NextRequest) {
         // Try to fetch the existing record
         const { data: existingRecord } = await supabase
           .from('attendance_logs')
-          .select('id, attendance_type, captured_at')
+          .select('id, type, captured_at')  // Column name is 'type', not 'attendance_type'
           .eq('client_capture_id', input.clientCaptureId)
           .single()
 
         if (existingRecord) {
           return successResponse({
             id: existingRecord.id,
-            attendanceType: existingRecord.attendance_type,
+            attendanceType: existingRecord.type,  // Map 'type' to 'attendanceType' for response
             capturedAt: existingRecord.captured_at,
             message: 'Attendance already recorded',
             idempotent: true,
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
 
     return successResponse({
       id: attendance.id,
-      attendanceType: attendance.attendance_type,
+      attendanceType: attendance.type,  // Map 'type' to 'attendanceType' for response
       capturedAt: attendance.captured_at,
       verificationStatus: attendance.verification_status,
       message: 'Check-in recorded successfully',
