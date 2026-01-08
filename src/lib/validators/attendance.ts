@@ -25,9 +25,15 @@ export const mobileAttendanceSchema = z.object({
   deviceId: z.string().min(1, 'Device ID is required'),
   clientCaptureId: z.string().min(1, 'Client capture ID is required'),
   capturedAt: z.string().datetime('Invalid captured timestamp'),
+  payload: z.object({
+    type: z.literal('EMBEDDING_V1'),
+    embedding: z.array(z.number()).length(128, 'Embedding must be 128-dimensional'),
+  }),
+  liveness: z.object({
+    provided: z.boolean(),
+    score: z.number().min(0).max(1),
+  }),
   verificationMethod: z.enum(['FACE', 'MANUAL_ADMIN']).default('FACE'),
-  matchScore: z.number().min(0).max(1).optional(),
-  livenessScore: z.number().min(0).max(1).optional(),
   note: z.string().max(500).optional(),
   proofImagePath: z.string().optional(),
   proofImageMime: z.string().optional(),

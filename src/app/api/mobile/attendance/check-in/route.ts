@@ -1,11 +1,12 @@
 import { NextRequest } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { successResponse, validationErrorResponse, errors } from '@/lib/api/response'
-import { requireMobileAuth, validateDeviceMatch, validateEmployeeMatch } from '@/lib/auth/mobileGuard'
+import { requireMobileAuth, validateDeviceMatch } from '@/lib/auth/mobileGuard'
 import { mobileAttendanceSchema } from '@/lib/validators/attendance'
+import { identifyFace } from '@/lib/face/identify'
 import { ZodError } from 'zod'
 
-// POST /api/mobile/attendance/check-in - Record a check-in
+// POST /api/mobile/attendance/check-in - Record a check-in with face verification
 export async function POST(request: NextRequest) {
   try {
     // Verify JWT and get payload
@@ -18,11 +19,22 @@ export async function POST(request: NextRequest) {
     
     // Validate device match
     validateDeviceMatch(payload.deviceIdString, input.deviceId)
-    
-    // Validate employee match if provided (payload.sub is employee UUID)
-    validateEmployeeMatch(payload.sub, input.employeeId)
 
     const supabase = createAdminSupabaseClient()
+
+    // ====================================================
+    // Face Verification - REQUIRED for check-in
+    // ====================================================
+    const identifyResult = await identifyFace(input.payload.embedding)
+
+    if (!identifyResult) {
+      return errors.faceNotRecognized()
+    }
+
+    // Verify that identified employee matches token employee
+    if (identifyResult.employee.id !== payload.sub) {
+      return errors.faceNotRecognized()
+    }
 
     // ====================================================
     // Idempotency Check - Same clientCaptureId
@@ -70,6 +82,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ====================================================
+    // ====================================================
     // Insert Check-In Record
     // ====================================================
     const { data: attendance, error: insertError } = await supabase
@@ -83,9 +96,9 @@ export async function POST(request: NextRequest) {
         client_capture_id: input.clientCaptureId,
         captured_at: input.capturedAt,
         verification_method: input.verificationMethod,
-        match_score: input.matchScore,
-        liveness_score: input.livenessScore,
-        verification_status: input.matchScore && input.matchScore >= 0.7 ? 'VERIFIED' : 'PENDING',
+        match_score: identifyResult.score,  // Score from face matching
+        liveness_score: input.liveness.score,  // Liveness score from client
+        verification_status: identifyResult.score >= 0.7 ? 'VERIFIED' : 'PENDING',
         note: input.note,
         proof_image_path: input.proofImagePath,
         proof_image_mime: input.proofImageMime,
