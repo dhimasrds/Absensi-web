@@ -17,6 +17,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -385,6 +386,9 @@ function AttendancePageContent() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Attendance Proof</DialogTitle>
+            <DialogDescription>
+              View the proof photo captured during attendance check-in or check-out
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             {proofRecord && (

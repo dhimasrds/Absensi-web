@@ -8,6 +8,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let id: string | undefined
+  
   try {
     // Verify admin
     const authResult = await requireAdmin()
@@ -15,11 +17,21 @@ export async function GET(
       return authResult
     }
 
-    const { id } = await params
+    // Resolve params (Next.js 15 async params)
+    try {
+      const resolvedParams = await params
+      id = resolvedParams.id
+    } catch (paramsError) {
+      console.error('Failed to resolve params:', paramsError)
+      return errors.badRequest('INVALID_REQUEST', 'Failed to parse request parameters')
+    }
+    
+    console.log('Proof URL request for attendance ID:', id)
 
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    if (!uuidRegex.test(id)) {
+    if (!id || !uuidRegex.test(id)) {
+      console.error('Invalid UUID format:', id)
       return errors.badRequest('INVALID_ID', 'Invalid attendance ID format')
     }
 
