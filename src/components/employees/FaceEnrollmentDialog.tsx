@@ -243,6 +243,7 @@ export function FaceEnrollmentDialog({
 
       const responseData = await response.json()
       console.log('Response:', response.status, responseData)
+      console.log('Face photo URL from response:', responseData.data?.facePhotoUrl)
 
       if (!response.ok) {
         throw new Error(responseData.error?.message || responseData.error?.details || 'Failed to enroll face')
@@ -250,7 +251,10 @@ export function FaceEnrollmentDialog({
 
       // Store the enrolled face photo URL from response
       if (responseData.data?.facePhotoUrl) {
+        console.log('✅ Setting enrolled photo URL:', responseData.data.facePhotoUrl)
         setEnrolledPhotoUrl(responseData.data.facePhotoUrl)
+      } else {
+        console.warn('⚠️ No facePhotoUrl in response. Full response:', responseData)
       }
 
       setStep('success')

@@ -33,8 +33,9 @@ import {
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
-import { Plus, Search, Pencil, Trash2, UserPlus, Users, MapPin, ScanFace } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, UserPlus, Users, MapPin, ScanFace, Image as ImageIcon } from 'lucide-react'
 import { FaceEnrollmentDialog } from '@/components/employees/FaceEnrollmentDialog'
+import { FacePhotoPreviewDialog } from '@/components/employees/FacePhotoPreviewDialog'
 
 interface WorkLocation {
   id: string
@@ -87,6 +88,7 @@ function EmployeesPageContent() {
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [isFaceEnrollOpen, setIsFaceEnrollOpen] = useState(false)
+  const [isFacePhotoPreviewOpen, setIsFacePhotoPreviewOpen] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [formLoading, setFormLoading] = useState(false)
   
@@ -489,6 +491,19 @@ function EmployeesPageContent() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          {emp.hasFaceEnrolled && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Preview Face Photo"
+                              onClick={() => {
+                                setSelectedEmployee(emp)
+                                setIsFacePhotoPreviewOpen(true)
+                              }}
+                            >
+                              <ImageIcon className="h-4 w-4 text-purple-500" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -689,6 +704,19 @@ function EmployeesPageContent() {
           }}
           onSuccess={() => {
             fetchEmployees()
+          }}
+        />
+      )}
+
+      {/* Face Photo Preview Dialog */}
+      {selectedEmployee && (
+        <FacePhotoPreviewDialog
+          open={isFacePhotoPreviewOpen}
+          onOpenChange={setIsFacePhotoPreviewOpen}
+          employee={{
+            id: selectedEmployee.id,
+            fullName: selectedEmployee.fullName,
+            employeeCode: selectedEmployee.employeeCode,
           }}
         />
       )}
