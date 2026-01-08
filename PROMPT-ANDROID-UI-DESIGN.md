@@ -10,7 +10,7 @@ Gunakan prompt ini untuk membuat design UI Android Attendance App dengan AI tool
 ====================================================
 
 **App Name**: Absensi Karyawan
-**Platform**: Android (Native)
+**Platform**: Android (Native)a
 **Min SDK**: Android 8.0 (API 26)
 **Design System**: Material Design 3 (Material You)
 **Primary Use Case**: Employee attendance check-in/check-out menggunakan face recognition

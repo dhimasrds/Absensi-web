@@ -25,14 +25,22 @@ export async function POST(request: NextRequest) {
     // ====================================================
     // Face Verification - REQUIRED for check-out
     // ====================================================
-    const identifyResult = await identifyFace(input.payload.embedding)
+    let identifyResult
+    try {
+      identifyResult = await identifyFace(input.payload.embedding)
+    } catch (faceError) {
+      console.error('Face identification error:', faceError)
+      return errors.faceNotRecognized()
+    }
 
     if (!identifyResult) {
+      console.log('Face not recognized: no match found')
       return errors.faceNotRecognized()
     }
 
     // Verify that identified employee matches token employee
     if (identifyResult.employee.id !== payload.sub) {
+      console.log('Face mismatch: token employee', payload.sub, 'vs identified', identifyResult.employee.id)
       return errors.faceNotRecognized()
     }
 
