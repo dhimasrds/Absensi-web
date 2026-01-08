@@ -22,6 +22,10 @@ export async function identifyFace(embedding: number[]): Promise<{
   // Convert embedding array to vector format
   const embeddingVector = `[${embedding.join(',')}]`
 
+  console.log('[identifyFace] Starting face identification')
+  console.log('[identifyFace] Threshold:', FACE_MATCH_THRESHOLD)
+  console.log('[identifyFace] Embedding length:', embedding.length)
+
   // Call RPC function to identify face
   const { data, error } = await supabase.rpc('face_identify_v1', {
     query_embedding: embeddingVector,
@@ -30,17 +34,25 @@ export async function identifyFace(embedding: number[]): Promise<{
   })
 
   if (error) {
-    console.error('Face identify error:', error)
+    console.error('[identifyFace] RPC error:', error)
     throw new Error('Face identification failed')
   }
+
+  console.log('[identifyFace] RPC results count:', data?.length || 0)
 
   const results = data as FaceIdentifyResult[]
 
   if (!results || results.length === 0) {
+    console.log('[identifyFace] No matches found')
     return null
   }
 
   const match = results[0]
+
+  console.log('[identifyFace] Best match:', {
+    employeeId: match.employee_id,
+    score: match.score
+  })
 
   // Get employee details
   const { data: employee, error: empError } = await supabase
@@ -51,8 +63,11 @@ export async function identifyFace(embedding: number[]): Promise<{
     .single()
 
   if (empError || !employee) {
+    console.error('[identifyFace] Employee fetch error:', empError)
     return null
   }
+
+  console.log('[identifyFace] Success:', employee.employee_id, employee.full_name)
 
   return {
     employee: {
