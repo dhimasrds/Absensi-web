@@ -444,6 +444,14 @@ Authorization: Bearer <access_token>
       "deviceId": "uuid",
       "sessionId": "uuid",
       "activeSessions": 1
+    },
+    "attendance": {
+      "alreadyCheckedIn": true,
+      "lastCheckIn": {
+        "timestamp": "2025-01-09T08:30:00Z",
+        "verificationStatus": "VERIFIED"
+      },
+      "lastCheckOut": null
     }
   },
   "meta": {
@@ -456,6 +464,12 @@ Authorization: Bearer <access_token>
 > - `workLocation` bisa `null` jika employee tidak di-assign ke lokasi kerja
 > - `device.label` akan otomatis dibuat jika device auto-registered
 > - Phone number dan job title TIDAK di-return di /me endpoint (tidak dibutuhkan mobile app)
+> - **`attendance.alreadyCheckedIn`**: Boolean yang menunjukkan apakah user sudah check-in hari ini
+>   - `true`: User sudah check-in dan belum check-out → tampilkan button **CHECK OUT**
+>   - `false`: User belum check-in atau sudah check-out → tampilkan button **CHECK IN**
+> - **`attendance.lastCheckIn`**: Data check-in terakhir hari ini (null jika belum check-in)
+> - **`attendance.lastCheckOut`**: Data check-out terakhir hari ini (null jika belum check-out)
+> - Attendance status akan **reset otomatis** di awal hari berikutnya (00:00 local time)
 
 ---
 

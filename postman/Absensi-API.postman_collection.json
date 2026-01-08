@@ -265,7 +265,7 @@
               "host": ["{{BASE_URL}}"],
               "path": ["api", "mobile", "me"]
             },
-            "description": "Get current employee profile"
+            "description": "Get current employee profile with attendance status.\n\n**Response includes:**\n- Employee info (name, email, department, etc.)\n- Work location assignment (if any)\n- Device info\n- Session info\n- **Attendance status** (NEW):\n  - `alreadyCheckedIn`: Boolean - true if checked in today and not checked out\n  - `lastCheckIn`: Last check-in timestamp today (null if none)\n  - `lastCheckOut`: Last check-out timestamp today (null if none)\n\n**Use `alreadyCheckedIn` to determine UI:**\n- `true`: Show **CHECK OUT** button (user is currently checked in)\n- `false`: Show **CHECK IN** button (user hasn't checked in or already checked out)\n\n**Auto-reset:** Status automatically resets at 00:00 local time each day.\n\n**Example Response:**\n```json\n{\n  \"data\": {\n    \"employee\": { ... },\n    \"device\": { ... },\n    \"session\": { ... },\n    \"attendance\": {\n      \"alreadyCheckedIn\": true,\n      \"lastCheckIn\": {\n        \"timestamp\": \"2026-01-09T08:30:00Z\",\n        \"verificationStatus\": \"VERIFIED\"\n      },\n      \"lastCheckOut\": null\n    }\n  }\n}\n```"
           },
           "response": []
         }

@@ -62,6 +62,44 @@ export async function GET(request: NextRequest) {
       .is('revoked_at', null)
       .gt('expires_at', new Date().toISOString())
 
+    // Check if user already checked in today
+    // Get start and end of today in local timezone
+    const now = new Date()
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+
+    // Check for CHECK_IN record today
+    const { data: todayCheckIn } = await supabase
+      .from('attendance_logs')
+      .select('id, type, timestamp, verification_status')
+      .eq('employee_id', payload.sub)
+      .eq('type', 'CHECK_IN')
+      .gte('timestamp', todayStart.toISOString())
+      .lte('timestamp', todayEnd.toISOString())
+      .order('timestamp', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    // Check for CHECK_OUT record today (to see if already checked out)
+    const { data: todayCheckOut } = await supabase
+      .from('attendance_logs')
+      .select('id, type, timestamp, verification_status')
+      .eq('employee_id', payload.sub)
+      .eq('type', 'CHECK_OUT')
+      .gte('timestamp', todayStart.toISOString())
+      .lte('timestamp', todayEnd.toISOString())
+      .order('timestamp', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    // User has checked in if:
+    // 1. There's a CHECK_IN record today, AND
+    // 2. Either no CHECK_OUT record OR CHECK_OUT is before CHECK_IN
+    const alreadyCheckedIn = !!todayCheckIn && (
+      !todayCheckOut || 
+      new Date(todayCheckIn.timestamp) > new Date(todayCheckOut.timestamp)
+    )
+
     // Extract work location (Supabase returns as array for single relation)
     const workLocation = Array.isArray(employee.work_location) 
       ? employee.work_location[0] 
@@ -103,6 +141,17 @@ export async function GET(request: NextRequest) {
         deviceId: payload.deviceId,
         sessionId: payload.sub,  // Use employee UUID as session identifier
         activeSessions: activeSessions || 0,
+      },
+      attendance: {
+        alreadyCheckedIn,  // Boolean: true if checked in today and not yet checked out
+        lastCheckIn: todayCheckIn ? {
+          timestamp: todayCheckIn.timestamp,
+          verificationStatus: todayCheckIn.verification_status,
+        } : null,
+        lastCheckOut: todayCheckOut ? {
+          timestamp: todayCheckOut.timestamp,
+          verificationStatus: todayCheckOut.verification_status,
+        } : null,
       }
     })
   } catch (error) {
