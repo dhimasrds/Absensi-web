@@ -128,16 +128,24 @@ export function FaceEnrollmentDialog({
       return
     }
 
-    // Create image URL
-    const url = URL.createObjectURL(file)
-    setImageUrl(url)
-    setStep('detecting')
-    setError(null)
+    // Convert file to base64 data URL for sending to backend
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string
+      setImageUrl(dataUrl) // Store as base64 data URL
+      setStep('detecting')
+      setError(null)
 
-    // Detect face after image loads
-    setTimeout(() => {
-      detectFace(url)
-    }, 100)
+      // Detect face after image loads
+      setTimeout(() => {
+        detectFace(dataUrl)
+      }, 100)
+    }
+    reader.onerror = () => {
+      toast.error('Failed to read image file')
+      setError('Failed to read image file')
+    }
+    reader.readAsDataURL(file) // Read as data URL instead of blob URL
   }
 
   const detectFace = async (url: string) => {
