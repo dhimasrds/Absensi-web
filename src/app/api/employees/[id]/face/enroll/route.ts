@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/auth/adminGuard'
 import { successResponse, validationErrorResponse, errors } from '@/lib/api/response'
 import { enrollFaceSchema } from '@/lib/validators/face'
@@ -76,8 +77,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             size: buffer.length
           })
           
-          // Upload to Supabase storage
-          const { data: uploadData, error: uploadError } = await supabase.storage
+          // Use service role client for storage upload (bypass RLS)
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+          const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+          const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+          
+          // Upload to Supabase storage with service role
+          const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
             .from('face-photos')
             .upload(facePhotoPath, buffer, {
               contentType: facePhotoMime,
@@ -169,7 +175,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Generate signed URL for face photo if available
     let facePhotoUrl: string | null = null
     if (result.face_photo_path) {
-      const { data: signedUrl } = await supabase.storage
+      // Use service role client for generating signed URL
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+      
+      const { data: signedUrl } = await supabaseAdmin.storage
         .from('face-photos')
         .createSignedUrl(result.face_photo_path, 3600) // 1 hour expiry
       
