@@ -43,7 +43,6 @@ export async function GET(
         latitude,
         longitude,
         created_at,
-        updated_at,
         employee:employees!attendance_logs_employee_id_fkey (
           id,
           employee_id,
@@ -124,7 +123,6 @@ export async function GET(
       proofImageMime: attendance.proof_image_mime,
       clientCaptureId: attendance.client_capture_id,
       createdAt: attendance.created_at,
-      updatedAt: attendance.updated_at,
       employee: {
         id: employeeData.id,
         employeeCode: employeeData.employee_id,  // DB column: employee_id
