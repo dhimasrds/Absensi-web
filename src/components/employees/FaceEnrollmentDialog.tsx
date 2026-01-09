@@ -262,17 +262,23 @@ export function FaceEnrollmentDialog({
         console.log('✅ Setting enrolled photo URL:', responseData.data.facePhotoUrl)
         setEnrolledPhotoUrl(responseData.data.facePhotoUrl)
       } else {
-        console.warn('⚠️ No facePhotoUrl in response. Full response:', responseData)
+        console.warn('⚠️ No facePhotoUrl in response. Using uploaded imageUrl as fallback')
+        // Fallback: use the uploaded image data URL for preview
+        setEnrolledPhotoUrl(imageUrl)
       }
 
       setStep('success')
       toast.success('Face enrolled successfully!')
       
-      // Close dialog after success
-      setTimeout(() => {
-        onOpenChange(false)
-        onSuccess?.()
-      }, 1500)
+      // Don't auto-close if we have a photo to show
+      if (!responseData.data?.facePhotoUrl) {
+        // Close dialog after success only if no photo
+        setTimeout(() => {
+          onOpenChange(false)
+          onSuccess?.()
+        }, 1500)
+      }
+      // If photo exists, let user manually close to see preview
     } catch (err) {
       console.error('Enrollment error:', err)
       setError(err instanceof Error ? err.message : 'Gagal menyimpan face template')
@@ -496,7 +502,10 @@ export function FaceEnrollmentDialog({
           )}
           
           {step === 'success' && (
-            <Button onClick={() => onOpenChange(false)}>
+            <Button onClick={() => {
+              onOpenChange(false)
+              onSuccess?.()
+            }}>
               Selesai
             </Button>
           )}
