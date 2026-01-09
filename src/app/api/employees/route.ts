@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     // Build query with work_location and face_templates join
     let dbQuery = supabase
       .from('employees')
-      .select('*, work_location:work_locations(id, name), face_templates(id)', { count: 'exact' })
+      .select('*, work_location:work_locations(id, name), face_templates(id, face_photo_path)', { count: 'exact' })
 
     // Search filter
     if (query.q) {
@@ -63,6 +63,17 @@ export async function GET(request: NextRequest) {
       // Check if face template exists (could be array or single object)
       const hasFace = faceTemplates !== null && 
         (Array.isArray(faceTemplates) ? faceTemplates.length > 0 : typeof faceTemplates === 'object')
+      
+      // Check if face photo exists
+      let hasFacePhoto = false
+      if (faceTemplates) {
+        if (Array.isArray(faceTemplates)) {
+          hasFacePhoto = faceTemplates.some((ft: any) => ft.face_photo_path)
+        } else if (typeof faceTemplates === 'object') {
+          hasFacePhoto = !!(faceTemplates as any).face_photo_path
+        }
+      }
+      
       return {
         id: emp.id,
         employeeCode: emp.employee_id,
@@ -75,6 +86,7 @@ export async function GET(request: NextRequest) {
         workLocationName: workLocation?.name || null,
         active: emp.is_active,
         hasFaceEnrolled: hasFace,
+        hasFacePhoto, // NEW: indicates if face photo exists
         createdAt: emp.created_at,
         updatedAt: emp.updated_at,
       }

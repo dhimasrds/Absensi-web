@@ -56,6 +56,7 @@ interface Employee {
   workLocationName: string | null
   active: boolean
   hasFaceEnrolled: boolean
+  hasFacePhoto: boolean
   createdAt: string
 }
 
@@ -491,7 +492,7 @@ function EmployeesPageContent() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          {emp.hasFaceEnrolled && (
+                          {emp.hasFacePhoto && (
                             <Button
                               variant="ghost"
                               size="icon"
