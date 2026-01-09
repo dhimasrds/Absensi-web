@@ -4,6 +4,7 @@ import { successResponse, validationErrorResponse, errors } from '@/lib/api/resp
 import { requireMobileAuth } from '@/lib/auth/mobileGuard'
 import { mobileHistoryQuerySchema } from '@/lib/validators/attendance'
 import { ZodError } from 'zod'
+import { createClient } from '@supabase/supabase-js'
 
 // GET /api/mobile/attendance/history - Get attendance history for the authenticated employee
 export async function GET(request: NextRequest) {
@@ -11,11 +12,11 @@ export async function GET(request: NextRequest) {
     // Verify JWT and get payload
     const payload = await requireMobileAuth(request)
 
-    // Parse query params
+    // Parse query params (support both from/to and startDate/endDate)
     const { searchParams } = new URL(request.url)
     const queryParams = {
-      from: searchParams.get('from') || undefined,
-      to: searchParams.get('to') || undefined,
+      from: searchParams.get('from') || searchParams.get('startDate') || undefined,
+      to: searchParams.get('to') || searchParams.get('endDate') || undefined,
       type: searchParams.get('type') || undefined,
       page: searchParams.get('page') || undefined,
       limit: searchParams.get('limit') || undefined,
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
       dbQuery = dbQuery.lte('captured_at', query.to)
     }
     if (query.type) {
-      dbQuery = dbQuery.eq('attendance_type', query.type)
+      dbQuery = dbQuery.eq('type', query.type)  // Column name is 'type', not 'attendance_type'
     }
 
     // Apply pagination
@@ -55,17 +56,46 @@ export async function GET(request: NextRequest) {
       return errors.internalError('Failed to fetch attendance history')
     }
 
-    // Transform response
-    const items = (attendances || []).map((att) => ({
-      id: att.id,
-      attendanceType: att.attendance_type,
-      capturedAt: att.captured_at,
-      verificationMethod: att.verification_method,
-      verificationStatus: att.verification_status,
-      matchScore: att.match_score,
-      livenessScore: att.liveness_score,
-      note: att.note,
-      hasProof: !!att.proof_image_path,
+    // Create admin client for generating signed URLs
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    // Transform response with signed URLs for proof images
+    const items = await Promise.all((attendances || []).map(async (att) => {
+      let proofImageUrl: string | null = null
+      
+      // Generate signed URL if proof image exists
+      if (att.proof_image_path) {
+        try {
+          const { data: signedUrlData } = await supabaseAdmin.storage
+            .from('attendance-proofs')
+            .createSignedUrl(att.proof_image_path, 3600) // 1 hour expiry
+          
+          if (signedUrlData) {
+            proofImageUrl = signedUrlData.signedUrl
+          }
+        } catch (urlError) {
+          console.error('[history] Proof image URL error:', urlError)
+        }
+      }
+
+      return {
+        id: att.id,
+        type: att.type,  // "CHECK_IN" or "CHECK_OUT"
+        timestamp: att.timestamp,
+        capturedAt: att.captured_at,
+        latitude: att.latitude,
+        longitude: att.longitude,
+        verificationMethod: att.verification_method,
+        verificationStatus: att.verification_status,
+        matchScore: att.match_score,
+        livenessScore: att.liveness_score,
+        note: att.note,
+        proofImageUrl,
+        proofImageMime: att.proof_image_mime,
+      }
     }))
 
     return successResponse(items, {
