@@ -5,6 +5,7 @@ import { requireMobileAuth, validateDeviceMatch } from '@/lib/auth/mobileGuard'
 import { mobileAttendanceSchema } from '@/lib/validators/attendance'
 import { identifyFace } from '@/lib/face/identify'
 import { ZodError } from 'zod'
+import { createClient } from '@supabase/supabase-js'
 
 // POST /api/mobile/attendance/check-in - Record a check-in with face verification
 export async function POST(request: NextRequest) {
@@ -90,6 +91,80 @@ export async function POST(request: NextRequest) {
     }
 
     // ====================================================
+    // Upload Proof Image to Storage (if provided)
+    // ====================================================
+    let actualProofImagePath: string | null = null
+    let actualProofImageMime: string | null = null
+
+    if (input.proofImageBase64) {
+      try {
+        console.log('[check-in] Proof image upload attempt:', {
+          hasPhoto: true,
+          photoLength: input.proofImageBase64.length,
+          photoPrefix: input.proofImageBase64.substring(0, 50),
+        })
+
+        // Extract mime type and base64 data from data URL
+        const dataUrlMatch = input.proofImageBase64.match(/^data:([^;]+);base64,(.+)$/)
+        
+        console.log('[check-in] Regex match result:', {
+          matched: !!dataUrlMatch,
+          mime: dataUrlMatch?.[1],
+          dataLength: dataUrlMatch?.[2]?.length,
+        })
+
+        if (!dataUrlMatch) {
+          console.error('[check-in] Invalid data URL format')
+          return errors.badRequest('INVALID_IMAGE_FORMAT', 'Invalid proof image format')
+        }
+
+        const mimeType = dataUrlMatch[1]
+        const base64Data = dataUrlMatch[2]
+
+        // Convert base64 to buffer
+        const buffer = Buffer.from(base64Data, 'base64')
+        
+        // Generate unique filename
+        const fileExtension = mimeType.split('/')[1]
+        const fileName = `${input.clientCaptureId}-${Date.now()}.${fileExtension}`
+        const storagePath = `attendance-proofs/${payload.sub}/${fileName}`
+
+        console.log('[check-in] Uploading to storage:', {
+          path: storagePath,
+          mime: mimeType,
+          size: buffer.length,
+        })
+
+        // Create admin client with service role key (bypasses RLS)
+        const supabaseAdmin = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+
+        // Upload to storage using admin client
+        const { error: uploadError } = await supabaseAdmin.storage
+          .from('attendance-proofs')
+          .upload(storagePath, buffer, {
+            contentType: mimeType,
+            upsert: false,
+          })
+
+        if (uploadError) {
+          console.error('[check-in] Failed to upload proof photo:', uploadError)
+          // Don't fail the check-in, just log the error
+          console.warn('[check-in] Continuing check-in without proof photo')
+        } else {
+          console.log('[check-in] ✅ Photo uploaded successfully:', { path: storagePath })
+          actualProofImagePath = storagePath
+          actualProofImageMime = mimeType
+        }
+      } catch (uploadError) {
+        console.error('[check-in] Proof photo upload error:', uploadError)
+        // Don't fail the check-in, just log the error
+        console.warn('[check-in] Continuing check-in without proof photo')
+      }
+    }
+
     // ====================================================
     // Insert Check-In Record
     // ====================================================
@@ -108,8 +183,8 @@ export async function POST(request: NextRequest) {
         liveness_score: input.liveness.score,  // Liveness score from client
         verification_status: identifyResult.score >= 0.7 ? 'VERIFIED' : 'PENDING',
         note: input.note,
-        proof_image_path: input.proofImagePath,
-        proof_image_mime: input.proofImageMime,
+        proof_image_path: actualProofImagePath || input.proofImagePath,  // Use uploaded path if available
+        proof_image_mime: actualProofImageMime || input.proofImageMime,
       })
       .select()
       .single()

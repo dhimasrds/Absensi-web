@@ -37,6 +37,7 @@ export const mobileAttendanceSchema = z.object({
   note: z.string().max(500).nullable().optional(),
   proofImagePath: z.string().optional(),
   proofImageMime: z.string().optional(),
+  proofImageBase64: z.string().optional().nullable(), // Base64 data URL for actual upload
 })
 
 export const mobileHistoryQuerySchema = z.object({
