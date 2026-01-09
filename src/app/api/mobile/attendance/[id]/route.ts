@@ -46,12 +46,12 @@ export async function GET(
         updated_at,
         employee:employees!attendance_logs_employee_id_fkey (
           id,
-          employee_code,
+          employee_id,
           full_name,
           email,
-          phone,
+          phone_number,
           department,
-          position
+          job_title
         )
       `)
       .eq('id', id)
@@ -127,12 +127,12 @@ export async function GET(
       updatedAt: attendance.updated_at,
       employee: {
         id: employeeData.id,
-        employeeCode: employeeData.employee_code,
+        employeeCode: employeeData.employee_id,  // DB column: employee_id
         fullName: employeeData.full_name,
         email: employeeData.email,
-        phone: employeeData.phone,
+        phone: employeeData.phone_number,  // DB column: phone_number
         department: employeeData.department,
-        position: employeeData.position,
+        position: employeeData.job_title,  // DB column: job_title
       }
     }
 
