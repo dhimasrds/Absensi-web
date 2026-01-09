@@ -5,9 +5,9 @@ import { requireMobileAuth } from '@/lib/auth/mobileGuard'
 import { createClient } from '@supabase/supabase-js'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 // GET /api/mobile/attendance/[id] - Get attendance detail by ID
@@ -19,7 +19,7 @@ export async function GET(
     // Verify JWT and get payload
     const payload = await requireMobileAuth(request)
     
-    const { id } = params
+    const { id } = await params  // Await params in Next.js 15
     const supabase = createAdminSupabaseClient()
 
     // Fetch attendance detail
