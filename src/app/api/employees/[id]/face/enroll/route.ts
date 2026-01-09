@@ -44,10 +44,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let facePhotoPath: string | null = null
     let facePhotoMime: string | null = null
     
+    console.log('Face photo upload attempt:', {
+      hasPhoto: !!input.facePhotoBase64,
+      photoLength: input.facePhotoBase64?.length || 0,
+      photoPrefix: input.facePhotoBase64?.substring(0, 50) || 'none'
+    })
+    
     if (input.facePhotoBase64) {
       try {
         // Extract mime type and base64 data from data URL
         const matches = input.facePhotoBase64.match(/^data:([^;]+);base64,(.+)$/)
+        console.log('Regex match result:', {
+          matched: !!matches,
+          mime: matches?.[1],
+          dataLength: matches?.[2]?.length || 0
+        })
+        
         if (matches) {
           facePhotoMime = matches[1]
           const base64Data = matches[2]
@@ -58,8 +70,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           const ext = facePhotoMime.split('/')[1] || 'jpg'
           facePhotoPath = `${id}/${timestamp}.${ext}`
           
+          console.log('Uploading to storage:', {
+            path: facePhotoPath,
+            mime: facePhotoMime,
+            size: buffer.length
+          })
+          
           // Upload to Supabase storage
-          const { error: uploadError } = await supabase.storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
             .from('face-photos')
             .upload(facePhotoPath, buffer, {
               contentType: facePhotoMime,
@@ -68,15 +86,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           
           if (uploadError) {
             console.error('Failed to upload face photo:', uploadError)
+            console.error('Upload error details:', JSON.stringify(uploadError))
             // Continue without photo - non-critical
             facePhotoPath = null
             facePhotoMime = null
+          } else {
+            console.log('✅ Photo uploaded successfully:', uploadData)
           }
+        } else {
+          console.error('❌ Regex match failed - invalid data URL format')
         }
       } catch (uploadErr) {
         console.error('Error processing face photo:', uploadErr)
+        console.error('Upload exception:', uploadErr instanceof Error ? uploadErr.message : uploadErr)
         // Continue without photo - non-critical
+        facePhotoPath = null
+        facePhotoMime = null
       }
+    } else {
+      console.log('⚠️ No facePhotoBase64 provided in request')
     }
 
     // Check if face template already exists for this employee
