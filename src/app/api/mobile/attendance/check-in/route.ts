@@ -104,22 +104,23 @@ export async function POST(request: NextRequest) {
           photoPrefix: input.proofImageBase64.substring(0, 50),
         })
 
-        // Extract mime type and base64 data from data URL
+        let mimeType: string
+        let base64Data: string
+
+        // Check if it's a data URL (data:image/jpeg;base64,...) or plain base64
         const dataUrlMatch = input.proofImageBase64.match(/^data:([^;]+);base64,(.+)$/)
         
-        console.log('[check-in] Regex match result:', {
-          matched: !!dataUrlMatch,
-          mime: dataUrlMatch?.[1],
-          dataLength: dataUrlMatch?.[2]?.length,
-        })
-
-        if (!dataUrlMatch) {
-          console.error('[check-in] Invalid data URL format')
-          return errors.badRequest('INVALID_IMAGE_FORMAT', 'Invalid proof image format')
+        if (dataUrlMatch) {
+          // Format: data:image/jpeg;base64,/9j/4AAQ...
+          mimeType = dataUrlMatch[1]
+          base64Data = dataUrlMatch[2]
+          console.log('[check-in] Data URL format detected:', { mime: mimeType, dataLength: base64Data.length })
+        } else {
+          // Plain base64 format (from mobile) - use proofImageMime from request
+          mimeType = input.proofImageMime || 'image/jpeg'
+          base64Data = input.proofImageBase64
+          console.log('[check-in] Plain base64 format detected:', { mime: mimeType, dataLength: base64Data.length })
         }
-
-        const mimeType = dataUrlMatch[1]
-        const base64Data = dataUrlMatch[2]
 
         // Convert base64 to buffer
         const buffer = Buffer.from(base64Data, 'base64')
