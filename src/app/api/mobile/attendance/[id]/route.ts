@@ -40,6 +40,8 @@ export async function GET(
         proof_image_path,
         proof_image_mime,
         client_capture_id,
+        latitude,
+        longitude,
         created_at,
         updated_at,
         employee:employees!attendance_logs_employee_id_fkey (
@@ -59,14 +61,23 @@ export async function GET(
       console.error('[attendance-detail] Fetch error:', fetchError)
       
       if (fetchError.code === 'PGRST116') {
-        return errors.notFound('ATTENDANCE_NOT_FOUND', 'Attendance record not found')
+        return errors.notFound('Attendance record not found')
       }
       
       return errors.internalError('Failed to fetch attendance detail')
     }
 
+    if (!attendance) {
+      return errors.notFound('Attendance record not found')
+    }
+
+    // Extract employee data (Supabase returns foreign relations as array or single object)
+    const employeeData = Array.isArray(attendance.employee) 
+      ? attendance.employee[0] 
+      : attendance.employee
+
     // Verify that attendance belongs to the authenticated employee
-    if (attendance.employee.id !== payload.sub) {
+    if (employeeData.id !== payload.sub) {
       return errors.forbidden('You can only view your own attendance records')
     }
 
@@ -107,19 +118,21 @@ export async function GET(
       matchScore: attendance.match_score,
       livenessScore: attendance.liveness_score,
       note: attendance.note,
+      latitude: attendance.latitude,
+      longitude: attendance.longitude,
       proofImageUrl,
       proofImageMime: attendance.proof_image_mime,
       clientCaptureId: attendance.client_capture_id,
       createdAt: attendance.created_at,
       updatedAt: attendance.updated_at,
       employee: {
-        id: attendance.employee.id,
-        employeeCode: attendance.employee.employee_code,
-        fullName: attendance.employee.full_name,
-        email: attendance.employee.email,
-        phone: attendance.employee.phone,
-        department: attendance.employee.department,
-        position: attendance.employee.position,
+        id: employeeData.id,
+        employeeCode: employeeData.employee_code,
+        fullName: employeeData.full_name,
+        email: employeeData.email,
+        phone: employeeData.phone,
+        department: employeeData.department,
+        position: employeeData.position,
       }
     }
 

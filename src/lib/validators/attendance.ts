@@ -38,6 +38,8 @@ export const mobileAttendanceSchema = z.object({
   proofImagePath: z.string().optional(),
   proofImageMime: z.string().optional(),
   proofImageBase64: z.string().optional().nullable(), // Base64 data URL for actual upload
+  latitude: z.number().min(-90).max(90).nullable().optional(), // GPS latitude
+  longitude: z.number().min(-180).max(180).nullable().optional(), // GPS longitude
 })
 
 export const mobileHistoryQuerySchema = z.object({

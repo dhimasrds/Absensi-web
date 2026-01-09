@@ -187,6 +187,8 @@ export async function POST(request: NextRequest) {
         note: input.note,
         proof_image_path: actualProofImagePath || input.proofImagePath,  // Use uploaded path if available
         proof_image_mime: actualProofImageMime || input.proofImageMime,
+        latitude: input.latitude,  // GPS latitude coordinate
+        longitude: input.longitude,  // GPS longitude coordinate
       })
       .select()
       .single()
