@@ -103,29 +103,93 @@ export function MapPicker({
     }
   }
 
-  // Get current location
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      setLoading(true)
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const newLat = position.coords.latitude
-          const newLng = position.coords.longitude
-          setLatitude(newLat)
-          setLongitude(newLng)
-          await reverseGeocode(newLat, newLng)
-          setLoading(false)
-          toast.success('Current location detected!')
-        },
-        (error) => {
-          setLoading(false)
-          toast.error('Failed to get current location: ' + error.message)
-        },
-        { enableHighAccuracy: true }
-      )
-    } else {
-      toast.error('Geolocation is not supported by your browser')
+  // Get current location using IP-based fallback
+  const getLocationByIP = async () => {
+    try {
+      const response = await fetch('https://ipapi.co/json/')
+      const data = await response.json()
+      if (data.latitude && data.longitude) {
+        setLatitude(data.latitude)
+        setLongitude(data.longitude)
+        const locationParts = [data.city, data.region, data.country_name].filter(Boolean)
+        setAddress(locationParts.join(', '))
+        toast.success('Location detected via IP (approximate)')
+        return true
+      }
+      return false
+    } catch {
+      return false
     }
+  }
+
+  // Get current location with better error handling
+  const getCurrentLocation = async () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser')
+      // Try IP-based fallback
+      setLoading(true)
+      await getLocationByIP()
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    
+    // First try with high accuracy
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const newLat = position.coords.latitude
+        const newLng = position.coords.longitude
+        setLatitude(newLat)
+        setLongitude(newLng)
+        await reverseGeocode(newLat, newLng)
+        setLoading(false)
+        toast.success('Current location detected!')
+      },
+      async (error) => {
+        console.warn('High accuracy location failed:', error.message)
+        
+        // Try with low accuracy as fallback
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const newLat = position.coords.latitude
+            const newLng = position.coords.longitude
+            setLatitude(newLat)
+            setLongitude(newLng)
+            await reverseGeocode(newLat, newLng)
+            setLoading(false)
+            toast.success('Location detected (low accuracy)')
+          },
+          async (lowAccuracyError) => {
+            console.warn('Low accuracy location also failed:', lowAccuracyError.message)
+            
+            // Final fallback: IP-based location
+            const ipSuccess = await getLocationByIP()
+            setLoading(false)
+            
+            if (!ipSuccess) {
+              let errorMsg = 'Unable to detect location. '
+              switch (error.code) {
+                case error.PERMISSION_DENIED:
+                  errorMsg += 'Please allow location access in your browser settings.'
+                  break
+                case error.POSITION_UNAVAILABLE:
+                  errorMsg += 'Location services unavailable. Try searching for your location instead.'
+                  break
+                case error.TIMEOUT:
+                  errorMsg += 'Location request timed out. Try again or search manually.'
+                  break
+                default:
+                  errorMsg += 'Try searching for your location instead.'
+              }
+              toast.error(errorMsg)
+            }
+          },
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+        )
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    )
   }
 
   // Handle coordinate change

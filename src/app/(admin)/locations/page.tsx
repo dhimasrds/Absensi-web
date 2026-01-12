@@ -243,24 +243,70 @@ function LocationsPageContent() {
     setIsEditOpen(true)
   }
 
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setFormData(prev => ({
-            ...prev,
-            latitude: String(position.coords.latitude),
-            longitude: String(position.coords.longitude),
-          }))
-          toast.success('Location detected')
-        },
-        (error) => {
-          toast.error('Failed to get current location: ' + error.message)
-        }
-      )
-    } else {
-      toast.error('Geolocation is not supported by your browser')
+  const getCurrentLocation = async () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported. Use "Pick from Map" instead.')
+      return
     }
+
+    // Try to get location with fallbacks
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData(prev => ({
+          ...prev,
+          latitude: String(position.coords.latitude),
+          longitude: String(position.coords.longitude),
+        }))
+        toast.success('Location detected')
+      },
+      async (error) => {
+        // Try low accuracy as fallback
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setFormData(prev => ({
+              ...prev,
+              latitude: String(position.coords.latitude),
+              longitude: String(position.coords.longitude),
+            }))
+            toast.success('Location detected (approximate)')
+          },
+          async () => {
+            // Final fallback: IP-based location
+            try {
+              const response = await fetch('https://ipapi.co/json/')
+              const data = await response.json()
+              if (data.latitude && data.longitude) {
+                setFormData(prev => ({
+                  ...prev,
+                  latitude: String(data.latitude),
+                  longitude: String(data.longitude),
+                  address: [data.city, data.region, data.country_name].filter(Boolean).join(', '),
+                }))
+                toast.success('Location detected via IP (approximate)')
+                return
+              }
+            } catch {
+              // Ignore IP lookup errors
+            }
+            
+            let errorMsg = 'Unable to detect location. '
+            switch (error.code) {
+              case error.PERMISSION_DENIED:
+                errorMsg += 'Allow location access or use "Pick from Map".'
+                break
+              case error.POSITION_UNAVAILABLE:
+                errorMsg += 'Use "Pick from Map" to select location.'
+                break
+              default:
+                errorMsg += 'Try "Pick from Map" instead.'
+            }
+            toast.error(errorMsg)
+          },
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+        )
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    )
   }
 
   const handleMapSelect = (location: { latitude: number; longitude: number; address: string }) => {
