@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     let device = await checkDeviceActive(input.deviceId)
     
     if (!device) {
-      // Auto-register new device
+      // Auto-register new device with model/os info
       const deviceLabel = input.model 
         ? `${input.model}` 
         : `${input.app?.platform || 'Mobile'} Device - Auto Registered`
@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
         .insert({
           device_id: input.deviceId,
           label: deviceLabel,
+          device_model: input.model || null,
+          os_version: input.os || null,
           is_active: true,
         })
         .select('id, device_id, is_active')
@@ -46,6 +48,24 @@ export async function POST(request: NextRequest) {
         id: newDevice.id,
         deviceId: newDevice.device_id,
         isActive: newDevice.is_active,
+      }
+    } else {
+      // Update existing device with model/os info if provided
+      if (input.model || input.os) {
+        const updateData: Record<string, unknown> = {}
+        
+        if (input.model) {
+          updateData.device_model = input.model
+          updateData.label = input.model // Update label to device model
+        }
+        if (input.os) {
+          updateData.os_version = input.os
+        }
+        
+        await supabase
+          .from('devices')
+          .update(updateData)
+          .eq('id', device.id)
       }
     }
 
