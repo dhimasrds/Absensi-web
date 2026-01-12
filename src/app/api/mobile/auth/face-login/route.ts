@@ -22,14 +22,21 @@ export async function POST(request: NextRequest) {
     let device = await checkDeviceActive(input.deviceId)
     
     if (!device) {
-      // Auto-register new device with default label from app info
-      const deviceLabel = `${input.app?.platform || 'Mobile'} Device - Auto Registered`
+      // Auto-register new device with device info from app
+      const deviceLabel = input.device?.model 
+        ? `${input.device.model}` 
+        : `${input.app?.platform || 'Mobile'} Device - Auto Registered`
       
       const { data: newDevice, error: deviceError } = await supabase
         .from('devices')
         .insert({
           device_id: input.deviceId,
           label: deviceLabel,
+          device_model: input.device?.model || null,
+          os_version: input.device?.osVersion || null,
+          manufacturer: input.device?.manufacturer || null,
+          app_version: input.app?.version || null,
+          last_seen_at: new Date().toISOString(),
           is_active: true,
         })
         .select('id, device_id, is_active')
@@ -45,6 +52,29 @@ export async function POST(request: NextRequest) {
         deviceId: newDevice.device_id,
         isActive: newDevice.is_active,
       }
+    } else {
+      // Update existing device with latest info
+      const updateData: Record<string, unknown> = {
+        last_seen_at: new Date().toISOString(),
+        app_version: input.app?.version || null,
+      }
+      
+      // Only update device info if provided
+      if (input.device?.model) {
+        updateData.device_model = input.device.model
+        updateData.label = input.device.model // Update label to device model
+      }
+      if (input.device?.osVersion) {
+        updateData.os_version = input.device.osVersion
+      }
+      if (input.device?.manufacturer) {
+        updateData.manufacturer = input.device.manufacturer
+      }
+      
+      await supabase
+        .from('devices')
+        .update(updateData)
+        .eq('id', device.id)
     }
 
     // Check if device is active

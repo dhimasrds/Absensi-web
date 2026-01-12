@@ -35,6 +35,7 @@ interface Device {
   deviceModel: string | null
   osVersion: string | null
   appVersion: string | null
+  manufacturer: string | null
   active: boolean
   lastSeenAt: string | null
   createdAt: string

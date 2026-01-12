@@ -32,11 +32,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       id: data.id,
       deviceUniqueId: data.device_id,
       deviceName: data.label || data.device_id,
-      deviceModel: null,
-      osVersion: null,
-      appVersion: null,
+      deviceModel: data.device_model || null,
+      osVersion: data.os_version || null,
+      appVersion: data.app_version || null,
+      manufacturer: data.manufacturer || null,
       active: data.is_active,
-      lastSeenAt: null,
+      lastSeenAt: data.last_seen_at || null,
       createdAt: data.created_at,
     }
 
@@ -116,11 +117,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       id: data.id,
       deviceUniqueId: data.device_id,
       deviceName: data.label || data.device_id,
-      deviceModel: null,
-      osVersion: null,
-      appVersion: null,
+      deviceModel: data.device_model || null,
+      osVersion: data.os_version || null,
+      appVersion: data.app_version || null,
+      manufacturer: data.manufacturer || null,
       active: data.is_active,
-      lastSeenAt: null,
+      lastSeenAt: data.last_seen_at || null,
       createdAt: data.created_at,
     }
 

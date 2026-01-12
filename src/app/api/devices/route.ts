@@ -60,11 +60,12 @@ export async function GET(request: NextRequest) {
       id: device.id,
       deviceUniqueId: device.device_id,
       deviceName: device.label || device.device_id,
-      deviceModel: null,
-      osVersion: null,
-      appVersion: null,
+      deviceModel: device.device_model || null,
+      osVersion: device.os_version || null,
+      appVersion: device.app_version || null,
+      manufacturer: device.manufacturer || null,
       active: device.is_active,
-      lastSeenAt: null,
+      lastSeenAt: device.last_seen_at || null,
       createdAt: device.created_at,
     }))
 
