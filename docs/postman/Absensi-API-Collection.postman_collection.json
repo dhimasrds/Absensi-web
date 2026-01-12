@@ -1,0 +1,758 @@
+{
+  "info": {
+    "_postman_id": "absensi-api-collection-2026",
+    "name": "Absensi Web API",
+    "description": "Complete API collection for Absensi Web Application - Updated January 2026",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://absensi-web-rouge.vercel.app",
+      "type": "string"
+    },
+    {
+      "key": "localUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "mobileAccessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "mobileRefreshToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Admin Auth",
+      "description": "Authentication endpoints for admin web dashboard",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@company.com\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📱 Mobile Auth",
+      "description": "Authentication endpoints for mobile app",
+      "item": [
+        {
+          "name": "Face Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.session) {",
+                  "    pm.environment.set('mobileAccessToken', jsonData.data.session.accessToken);",
+                  "    pm.environment.set('mobileRefreshToken', jsonData.data.session.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"ANDROID-DEV-001\",\n  \"clientCaptureId\": \"capture-{{$timestamp}}\",\n  \"capturedAt\": \"{{$isoTimestamp}}\",\n  \"payload\": {\n    \"type\": \"EMBEDDING_V1\",\n    \"embedding\": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]\n  },\n  \"liveness\": {\n    \"provided\": true,\n    \"score\": 0.95\n  },\n  \"app\": {\n    \"version\": \"1.0.0\",\n    \"platform\": \"android\"\n  },\n  \"device\": {\n    \"model\": \"Samsung Galaxy S21\",\n    \"osVersion\": \"Android 13\",\n    \"manufacturer\": \"Samsung\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/mobile/auth/face-login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "mobile", "auth", "face-login"]
+            },
+            "description": "Face recognition login for mobile app.\n\n**New Fields (optional):**\n- `device.model` - Device model name (e.g., \"Samsung Galaxy S21\")\n- `device.osVersion` - OS version (e.g., \"Android 13\")\n- `device.manufacturer` - Device manufacturer (e.g., \"Samsung\")"
+          }
+        },
+        {
+          "name": "Refresh Token (Mobile)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data) {",
+                  "    pm.environment.set('mobileAccessToken', jsonData.data.accessToken);",
+                  "    pm.environment.set('mobileRefreshToken', jsonData.data.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{mobileRefreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/mobile/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "mobile", "auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Logout (Mobile)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{mobileRefreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/mobile/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "mobile", "auth", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Get Current Employee (Mobile)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mobileAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/mobile/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "mobile", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Employees",
+      "description": "Employee management endpoints (Admin)",
+      "item": [
+        {
+          "name": "List Employees",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/employees?page=1&limit=20&isActive=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "employees"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "isActive", "value": "true", "description": "Filter: true, false, or all" },
+                { "key": "q", "value": "", "disabled": true, "description": "Search by name/email/employee_id" },
+                { "key": "sortBy", "value": "created_at", "disabled": true },
+                { "key": "sortDir", "value": "desc", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Employee by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/employees/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "employees", ":id"],
+              "variable": [
+                { "key": "id", "value": "employee-uuid-here" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeId\": \"EMP001\",\n  \"fullName\": \"John Doe\",\n  \"email\": \"john.doe@company.com\",\n  \"phoneNumber\": \"+6281234567890\",\n  \"department\": \"Engineering\",\n  \"jobTitle\": \"Software Engineer\",\n  \"workLocationId\": \"work-location-uuid\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/employees",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "employees"]
+            }
+          }
+        },
+        {
+          "name": "Update Employee",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"John Doe Updated\",\n  \"department\": \"Product\",\n  \"jobTitle\": \"Senior Engineer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/employees/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "employees", ":id"],
+              "variable": [
+                { "key": "id", "value": "employee-uuid-here" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Employee",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/employees/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "employees", ":id"],
+              "variable": [
+                { "key": "id", "value": "employee-uuid-here" }
+              ]
+            },
+            "description": "**Hard delete** - permanently removes employee and related data (face templates, attendance logs via CASCADE)"
+          }
+        },
+        {
+          "name": "Enroll Face",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"templateVersion\": 1,\n  \"qualityScore\": 0.95,\n  \"payload\": {\n    \"type\": \"EMBEDDING_V1\",\n    \"embedding\": [0.1, 0.2, 0.3, ...128 dimensions...]\n  },\n  \"facePhotoBase64\": \"data:image/jpeg;base64,/9j/4AAQ...\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/employees/:id/face/enroll",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "employees", ":id", "face", "enroll"],
+              "variable": [
+                { "key": "id", "value": "employee-uuid-here" }
+              ]
+            },
+            "description": "Enroll face embedding for an employee. Embedding must be 128 dimensions."
+          }
+        },
+        {
+          "name": "Get Face Template",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/employees/:id/face",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "employees", ":id", "face"],
+              "variable": [
+                { "key": "id", "value": "employee-uuid-here" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Face Template",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/employees/:id/face",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "employees", ":id", "face"],
+              "variable": [
+                { "key": "id", "value": "employee-uuid-here" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📱 Devices",
+      "description": "Device management endpoints (Admin)",
+      "item": [
+        {
+          "name": "List Devices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices?page=1&limit=20&isActive=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "devices"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "isActive", "value": "true", "description": "Filter: true, false, or all" },
+                { "key": "q", "value": "", "disabled": true, "description": "Search by device_id or label" },
+                { "key": "sortBy", "value": "created_at", "disabled": true },
+                { "key": "sortDir", "value": "desc", "disabled": true }
+              ]
+            },
+            "description": "**Response includes:**\n- `deviceModel` - Device model (e.g., \"Samsung Galaxy S21\")\n- `osVersion` - OS version (e.g., \"Android 13\")\n- `manufacturer` - Device manufacturer\n- `appVersion` - Mobile app version\n- `lastSeenAt` - Last login timestamp"
+          }
+        },
+        {
+          "name": "Get Device by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "devices", ":id"],
+              "variable": [
+                { "key": "id", "value": "device-uuid-here" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Device",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceUniqueId\": \"ANDROID-DEV-002\",\n  \"deviceName\": \"Office Tablet\",\n  \"active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/devices",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "devices"]
+            },
+            "description": "Manually register a device. Devices are also auto-registered on first face-login."
+          }
+        },
+        {
+          "name": "Update Device",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceName\": \"Updated Device Name\",\n  \"active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "devices", ":id"],
+              "variable": [
+                { "key": "id", "value": "device-uuid-here" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Device",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "devices", ":id"],
+              "variable": [
+                { "key": "id", "value": "device-uuid-here" }
+              ]
+            },
+            "description": "**Hard delete** - permanently removes device from database"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📍 Work Locations",
+      "description": "Work location management endpoints (Admin)",
+      "item": [
+        {
+          "name": "List Work Locations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/work-locations?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "work-locations"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "q", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Work Location by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/work-locations/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "work-locations", ":id"],
+              "variable": [
+                { "key": "id", "value": "location-uuid-here" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Work Location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Head Office\",\n  \"address\": \"Jl. Sudirman No. 123, Jakarta\",\n  \"latitude\": -6.2088,\n  \"longitude\": 106.8456,\n  \"radius\": 100\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/work-locations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "work-locations"]
+            },
+            "description": "Create a new work location with geofence settings.\n\n- `radius` - Geofence radius in meters"
+          }
+        },
+        {
+          "name": "Update Work Location",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Office Name\",\n  \"radius\": 150\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/work-locations/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "work-locations", ":id"],
+              "variable": [
+                { "key": "id", "value": "location-uuid-here" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Work Location",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/work-locations/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "work-locations", ":id"],
+              "variable": [
+                { "key": "id", "value": "location-uuid-here" }
+              ]
+            },
+            "description": "**Hard delete** - Cannot delete if employees are assigned to this location"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📋 Attendance (Admin)",
+      "description": "Attendance management endpoints for admin dashboard",
+      "item": [
+        {
+          "name": "List Attendance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "attendance"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "employeeId", "value": "", "disabled": true },
+                { "key": "type", "value": "", "disabled": true, "description": "CHECK_IN or CHECK_OUT" },
+                { "key": "startDate", "value": "", "disabled": true },
+                { "key": "endDate", "value": "", "disabled": true },
+                { "key": "sortBy", "value": "timestamp", "disabled": true },
+                { "key": "sortDir", "value": "desc", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Attendance by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "attendance", ":id"],
+              "variable": [
+                { "key": "id", "value": "attendance-uuid-here" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📱 Mobile Attendance",
+      "description": "Attendance endpoints for mobile app",
+      "item": [
+        {
+          "name": "Check In",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mobileAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientCaptureId\": \"checkin-{{$timestamp}}\",\n  \"capturedAt\": \"{{$isoTimestamp}}\",\n  \"payload\": {\n    \"type\": \"EMBEDDING_V1\",\n    \"embedding\": [0.1, 0.2, 0.3, ...128 dimensions...]\n  },\n  \"liveness\": {\n    \"provided\": true,\n    \"score\": 0.95\n  },\n  \"latitude\": -6.2088,\n  \"longitude\": 106.8456,\n  \"proofImageBase64\": \"data:image/jpeg;base64,/9j/4AAQ...\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/mobile/attendance/check-in",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "mobile", "attendance", "check-in"]
+            },
+            "description": "Submit check-in attendance with face verification.\n\n**GPS Coordinates:**\n- `latitude` - GPS latitude (optional, -90 to 90)\n- `longitude` - GPS longitude (optional, -180 to 180)"
+          }
+        },
+        {
+          "name": "Check Out",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mobileAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientCaptureId\": \"checkout-{{$timestamp}}\",\n  \"capturedAt\": \"{{$isoTimestamp}}\",\n  \"payload\": {\n    \"type\": \"EMBEDDING_V1\",\n    \"embedding\": [0.1, 0.2, 0.3, ...128 dimensions...]\n  },\n  \"liveness\": {\n    \"provided\": true,\n    \"score\": 0.95\n  },\n  \"latitude\": -6.2088,\n  \"longitude\": 106.8456,\n  \"proofImageBase64\": \"data:image/jpeg;base64,/9j/4AAQ...\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/mobile/attendance/check-out",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "mobile", "attendance", "check-out"]
+            },
+            "description": "Submit check-out attendance with face verification.\n\n**GPS Coordinates:**\n- `latitude` - GPS latitude (optional, -90 to 90)\n- `longitude` - GPS longitude (optional, -180 to 180)"
+          }
+        },
+        {
+          "name": "Get Attendance History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mobileAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/mobile/attendance/history?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "mobile", "attendance", "history"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "from", "value": "2026-01-01", "disabled": true },
+                { "key": "to", "value": "2026-01-31", "disabled": true },
+                { "key": "startDate", "value": "", "disabled": true, "description": "Alternative to 'from'" },
+                { "key": "endDate", "value": "", "disabled": true, "description": "Alternative to 'to'" }
+              ]
+            },
+            "description": "Get attendance history for current logged-in employee.\n\n**Response includes:**\n- `latitude` - GPS latitude at check-in/out\n- `longitude` - GPS longitude at check-in/out\n- `proofImageUrl` - Signed URL for proof image"
+          }
+        },
+        {
+          "name": "Get Attendance Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mobileAccessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/mobile/attendance/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "mobile", "attendance", ":id"],
+              "variable": [
+                { "key": "id", "value": "attendance-uuid-here" }
+              ]
+            },
+            "description": "Get detailed attendance record by ID.\n\n**Response includes:**\n- `latitude` - GPS latitude\n- `longitude` - GPS longitude\n- `proofImageUrl` - Signed URL for proof image (1 hour expiry)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📤 Upload",
+      "description": "File upload endpoints",
+      "item": [
+        {
+          "name": "Get Upload URL (Mobile)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mobileAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fileName\": \"proof-image.jpg\",\n  \"contentType\": \"image/jpeg\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/mobile/upload-url",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "mobile", "upload-url"]
+            },
+            "description": "Get a signed URL for uploading proof images to Supabase Storage"
+          }
+        }
+      ]
+    }
+  ]
+}
