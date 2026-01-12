@@ -130,7 +130,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// DELETE /api/employees/[id] - Soft delete (set is_active = false)
+// DELETE /api/employees/[id] - Hard delete employee from database
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     await requireAdmin()
@@ -141,7 +141,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Check if employee exists
     const { data: existing } = await supabase
       .from('employees')
-      .select('id')
+      .select('id, employee_id')
       .eq('id', id)
       .single()
 
@@ -149,20 +149,19 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return errors.notFound('Employee')
     }
 
-    // Soft delete by setting is_active = false
-    const { data, error } = await supabase
+    // Hard delete - actually remove from database
+    // Note: Related records (face_templates, attendance_logs) will be handled by ON DELETE CASCADE
+    const { error } = await supabase
       .from('employees')
-      .update({ is_active: false })
+      .delete()
       .eq('id', id)
-      .select()
-      .single()
 
     if (error) {
       console.error('Database error:', error)
       return errors.internalError('Failed to delete employee')
     }
 
-    return successResponse(data)
+    return successResponse({ message: 'Employee deleted successfully', id })
   } catch (error) {
     if (error instanceof Response) {
       return error

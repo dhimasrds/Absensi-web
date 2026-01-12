@@ -137,7 +137,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// DELETE /api/devices/[id] - Soft delete (set is_active = false)
+// DELETE /api/devices/[id] - Hard delete device from database
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     await requireAdmin()
@@ -148,7 +148,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Check if device exists
     const { data: existing } = await supabase
       .from('devices')
-      .select('id')
+      .select('id, device_id')
       .eq('id', id)
       .single()
 
@@ -156,33 +156,18 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return errors.notFound('Device')
     }
 
-    // Soft delete by setting is_active = false
-    const { data, error } = await supabase
+    // Hard delete - actually remove from database
+    const { error } = await supabase
       .from('devices')
-      .update({ is_active: false })
+      .delete()
       .eq('id', id)
-      .select()
-      .single()
 
     if (error) {
       console.error('Database error:', error)
       return errors.internalError('Failed to delete device')
     }
 
-    // Map response to frontend format
-    const mappedData = {
-      id: data.id,
-      deviceUniqueId: data.device_id,
-      deviceName: data.label || data.device_id,
-      deviceModel: null,
-      osVersion: null,
-      appVersion: null,
-      active: data.is_active,
-      lastSeenAt: null,
-      createdAt: data.created_at,
-    }
-
-    return successResponse(mappedData)
+    return successResponse({ message: 'Device deleted successfully', id })
   } catch (error) {
     if (error instanceof Response) {
       return error
