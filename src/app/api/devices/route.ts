@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const queryParams = {
       q: searchParams.get('q') || undefined,
-      isActive: searchParams.get('isActive') || 'all',
+      isActive: searchParams.get('isActive') || 'true', // Default to active only
       page: searchParams.get('page') || '1',
       limit: searchParams.get('limit') || '20',
       sortBy: searchParams.get('sortBy') || 'created_at',
@@ -55,7 +55,20 @@ export async function GET(request: NextRequest) {
       return errors.internalError('Failed to fetch devices')
     }
 
-    return successResponse(data, {
+    // Map database columns to frontend expected format
+    const mappedData = (data || []).map((device: any) => ({
+      id: device.id,
+      deviceUniqueId: device.device_id,
+      deviceName: device.label || device.device_id,
+      deviceModel: null,
+      osVersion: null,
+      appVersion: null,
+      active: device.is_active,
+      lastSeenAt: null,
+      createdAt: device.created_at,
+    }))
+
+    return successResponse(mappedData, {
       pagination: {
         page: query.page,
         limit: query.limit,
@@ -114,7 +127,20 @@ export async function POST(request: NextRequest) {
       return errors.internalError('Failed to create device')
     }
 
-    return successResponse(data, { status: 201 })
+    // Map response to frontend format
+    const mappedData = {
+      id: data.id,
+      deviceUniqueId: data.device_id,
+      deviceName: data.label || data.device_id,
+      deviceModel: null,
+      osVersion: null,
+      appVersion: null,
+      active: data.is_active,
+      lastSeenAt: null,
+      createdAt: data.created_at,
+    }
+
+    return successResponse(mappedData, { status: 201 })
   } catch (error) {
     if (error instanceof ZodError) {
       return validationErrorResponse(error)

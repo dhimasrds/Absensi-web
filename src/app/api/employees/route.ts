@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const queryParams = {
       q: searchParams.get('q') || undefined,
-      isActive: searchParams.get('isActive') || 'all',
+      isActive: searchParams.get('isActive') || 'true', // Default to active only
       page: searchParams.get('page') || '1',
       limit: searchParams.get('limit') || '20',
       sortBy: searchParams.get('sortBy') || 'created_at',

@@ -27,7 +27,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return errors.notFound('Device')
     }
 
-    return successResponse(data)
+    // Map response to frontend format
+    const mappedData = {
+      id: data.id,
+      deviceUniqueId: data.device_id,
+      deviceName: data.label || data.device_id,
+      deviceModel: null,
+      osVersion: null,
+      appVersion: null,
+      active: data.is_active,
+      lastSeenAt: null,
+      createdAt: data.created_at,
+    }
+
+    return successResponse(mappedData)
   } catch (error) {
     if (error instanceof Response) {
       return error
@@ -98,7 +111,20 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return errors.internalError('Failed to update device')
     }
 
-    return successResponse(data)
+    // Map response to frontend format
+    const mappedData = {
+      id: data.id,
+      deviceUniqueId: data.device_id,
+      deviceName: data.label || data.device_id,
+      deviceModel: null,
+      osVersion: null,
+      appVersion: null,
+      active: data.is_active,
+      lastSeenAt: null,
+      createdAt: data.created_at,
+    }
+
+    return successResponse(mappedData)
   } catch (error) {
     if (error instanceof ZodError) {
       return validationErrorResponse(error)
@@ -143,7 +169,20 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return errors.internalError('Failed to delete device')
     }
 
-    return successResponse(data)
+    // Map response to frontend format
+    const mappedData = {
+      id: data.id,
+      deviceUniqueId: data.device_id,
+      deviceName: data.label || data.device_id,
+      deviceModel: null,
+      osVersion: null,
+      appVersion: null,
+      active: data.is_active,
+      lastSeenAt: null,
+      createdAt: data.created_at,
+    }
+
+    return successResponse(mappedData)
   } catch (error) {
     if (error instanceof Response) {
       return error
