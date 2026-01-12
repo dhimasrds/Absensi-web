@@ -127,14 +127,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"deviceId\": \"ANDROID-DEV-001\",\n  \"clientCaptureId\": \"capture-{{$timestamp}}\",\n  \"capturedAt\": \"{{$isoTimestamp}}\",\n  \"payload\": {\n    \"type\": \"EMBEDDING_V1\",\n    \"embedding\": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]\n  },\n  \"liveness\": {\n    \"provided\": true,\n    \"score\": 0.95\n  },\n  \"app\": {\n    \"version\": \"1.0.0\",\n    \"platform\": \"android\"\n  },\n  \"device\": {\n    \"model\": \"Samsung Galaxy S21\",\n    \"osVersion\": \"Android 13\",\n    \"manufacturer\": \"Samsung\"\n  }\n}"
+              "raw": "{\n  \"deviceId\": \"ANDROID-DEV-001\",\n  \"clientCaptureId\": \"capture-{{$timestamp}}\",\n  \"capturedAt\": \"{{$isoTimestamp}}\",\n  \"payload\": {\n    \"type\": \"EMBEDDING_V1\",\n    \"embedding\": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]\n  },\n  \"liveness\": {\n    \"provided\": true,\n    \"score\": 0.95\n  },\n  \"app\": {\n    \"version\": \"1.0.0\",\n    \"platform\": \"android\"\n  },\n  \"model\": \"Samsung Galaxy S21\",\n  \"os\": \"Android 13\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/mobile/auth/face-login",
               "host": ["{{baseUrl}}"],
               "path": ["api", "mobile", "auth", "face-login"]
             },
-            "description": "Face recognition login for mobile app.\n\n**New Fields (optional):**\n- `device.model` - Device model name (e.g., \"Samsung Galaxy S21\")\n- `device.osVersion` - OS version (e.g., \"Android 13\")\n- `device.manufacturer` - Device manufacturer (e.g., \"Samsung\")"
+            "description": "Face recognition login for mobile app.\n\n**Optional Fields:**\n- `model` - Device model name (e.g., \"Samsung Galaxy S21\")\n- `os` - OS version (e.g., \"Android 13\")"
           }
         },
         {

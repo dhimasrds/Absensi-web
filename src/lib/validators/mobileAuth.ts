@@ -20,12 +20,9 @@ export const faceLoginSchema = z.object({
     version: z.string(),
     platform: z.enum(['android', 'ios']),
   }),
-  // Device info fields (optional for backward compatibility)
-  device: z.object({
-    model: z.string().max(100).optional().nullable(),  // e.g., "Samsung Galaxy S21", "iPhone 13 Pro"
-    osVersion: z.string().max(50).optional().nullable(),  // e.g., "Android 13", "iOS 16.5"
-    manufacturer: z.string().max(100).optional().nullable(),  // e.g., "Samsung", "Apple"
-  }).optional(),
+  // Device info fields (optional)
+  model: z.string().max(100).optional().nullable(),  // e.g., "Samsung Galaxy S21", "iPhone 13 Pro"
+  os: z.string().max(50).optional().nullable(),  // e.g., "Android 13", "iOS 16.5"
 })
 
 export const refreshTokenSchema = z.object({
