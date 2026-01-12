@@ -340,7 +340,6 @@ function DevicesPageContent() {
                   <TableRow>
                     <TableHead>Device</TableHead>
                     <TableHead>Model / OS</TableHead>
-                    <TableHead>Last Seen</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -359,9 +358,6 @@ function DevicesPageContent() {
                           <p>{device.deviceModel || '-'}</p>
                           <p className="text-sm text-gray-500">{device.osVersion || '-'}</p>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <p className="text-sm">{formatDate(device.lastSeenAt)}</p>
                       </TableCell>
                       <TableCell>
                         <Badge variant={device.active ? 'default' : 'secondary'}>

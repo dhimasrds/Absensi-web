@@ -27,7 +27,8 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
-import { Plus, Search, Pencil, Trash2, MapPin, Navigation } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, MapPin, Navigation, Map } from 'lucide-react'
+import { MapPicker } from '@/components/ui/map-picker'
 
 interface WorkLocation {
   id: string
@@ -67,6 +68,7 @@ function LocationsPageContent() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false)
   const [selectedLocation, setSelectedLocation] = useState<WorkLocation | null>(null)
   const [formLoading, setFormLoading] = useState(false)
   
@@ -261,6 +263,16 @@ function LocationsPageContent() {
     }
   }
 
+  const handleMapSelect = (location: { latitude: number; longitude: number; address: string }) => {
+    setFormData(prev => ({
+      ...prev,
+      latitude: String(location.latitude),
+      longitude: String(location.longitude),
+      address: location.address,
+    }))
+    toast.success('Location selected from map')
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -334,10 +346,16 @@ function LocationsPageContent() {
                   />
                 </div>
               </div>
-              <Button type="button" variant="outline" onClick={getCurrentLocation} className="w-full">
-                <Navigation className="mr-2 h-4 w-4" />
-                Use Current Location
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button type="button" variant="outline" onClick={() => setIsMapPickerOpen(true)}>
+                  <Map className="mr-2 h-4 w-4" />
+                  Pick from Map
+                </Button>
+                <Button type="button" variant="outline" onClick={getCurrentLocation}>
+                  <Navigation className="mr-2 h-4 w-4" />
+                  Current Location
+                </Button>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="create-radiusMeters">Radius (meters) *</Label>
                 <Input
@@ -579,10 +597,16 @@ function LocationsPageContent() {
                 />
               </div>
             </div>
-            <Button type="button" variant="outline" onClick={getCurrentLocation} className="w-full">
-              <Navigation className="mr-2 h-4 w-4" />
-              Use Current Location
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsMapPickerOpen(true)}>
+                <Map className="mr-2 h-4 w-4" />
+                Pick from Map
+              </Button>
+              <Button type="button" variant="outline" onClick={getCurrentLocation}>
+                <Navigation className="mr-2 h-4 w-4" />
+                Current Location
+              </Button>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="edit-radiusMeters">Radius (meters) *</Label>
               <Input
@@ -638,6 +662,17 @@ function LocationsPageContent() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Map Picker Dialog */}
+      {mounted && (
+        <MapPicker
+          open={isMapPickerOpen}
+          onOpenChange={setIsMapPickerOpen}
+          onSelect={handleMapSelect}
+          initialLat={formData.latitude ? parseFloat(formData.latitude) : -6.2088}
+          initialLng={formData.longitude ? parseFloat(formData.longitude) : 106.8456}
+        />
       )}
     </div>
   )
