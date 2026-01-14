@@ -436,12 +436,3 @@ npm install
 - [VS Code](https://code.visualstudio.com/) - Code editor
 
 ---
-
-**Tips untuk Belajar:**
-- Mulai dari file kecil, jangan langsung baca semua
-- Jalankan kode di local, coba ubah-ubah
-- Gunakan `console.log()` untuk debug
-- Baca error message dengan teliti
-- Jangan ragu bertanya!
-
-**Happy coding! 🚀**
