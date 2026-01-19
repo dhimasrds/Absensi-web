@@ -99,8 +99,15 @@ export async function POST(request: NextRequest) {
     const identifyResult = await identifyFace(input.payload.embedding)
 
     if (!identifyResult) {
+      // For debugging: log the failure reason
+      console.log('[face-login] Face not recognized - no match found or below threshold')
       return errors.faceNotRecognized()
     }
+    
+    console.log('[face-login] Face identified successfully:', {
+      employeeId: identifyResult.employee.employeeId,
+      score: identifyResult.score
+    })
 
     // 5. Generate token pair
     const tokenPair = await generateTokenPair({

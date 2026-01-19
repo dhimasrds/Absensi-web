@@ -33,6 +33,7 @@ const navigation = [
   { name: 'Locations', href: '/locations', icon: MapPin },
   { name: 'Devices', href: '/devices', icon: Smartphone },
   { name: 'Attendance', href: '/attendance', icon: ClipboardList },
+  { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
 export default function AdminLayout({

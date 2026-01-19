@@ -1,7 +1,6 @@
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { FaceIdentifyResult } from '@/lib/types/database'
-
-const FACE_MATCH_THRESHOLD = parseFloat(process.env.FACE_MATCH_THRESHOLD || '0.80')
+import { getSettingNumber } from '@/lib/settings'
 
 /**
  * Identify employee by face embedding
@@ -19,17 +18,21 @@ export async function identifyFace(embedding: number[]): Promise<{
 } | null> {
   const supabase = createAdminSupabaseClient()
 
+  // Get threshold from settings (with fallback to env var)
+  const envThreshold = parseFloat(process.env.FACE_MATCH_THRESHOLD || '0.60')
+  const threshold = await getSettingNumber('face_match_threshold', envThreshold)
+
   // Convert embedding array to vector format
   const embeddingVector = `[${embedding.join(',')}]`
 
   console.log('[identifyFace] Starting face identification')
-  console.log('[identifyFace] Threshold:', FACE_MATCH_THRESHOLD)
+  console.log('[identifyFace] Threshold:', threshold, '(from settings)')
   console.log('[identifyFace] Embedding length:', embedding.length)
 
   // Call RPC function to identify face
   const { data, error } = await supabase.rpc('face_identify_v1', {
     query_embedding: embeddingVector,
-    match_threshold: FACE_MATCH_THRESHOLD,
+    match_threshold: threshold,
     match_count: 1,
   })
 
