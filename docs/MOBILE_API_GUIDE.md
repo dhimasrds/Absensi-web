@@ -23,8 +23,16 @@ Digunakan untuk mendaftarkan wajah karyawan baru atau update wajah existing.
 ```json
 {
   "employeeCode": "EMP001",
-  "embedding": [0.123, -0.456, 0.789, ...],
-  "deviceId": "ANDROID-XXXXX"
+  "payload": {
+    "type": "EMBEDDING_V1",
+    "embedding": [0.123, -0.456, 0.789, ...]
+  },
+  "facePhotoBase64": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+  "deviceId": "ANDROID-XXXXX",
+  "liveness": {
+    "provided": true,
+    "score": 0.95
+  }
 }
 ```
 
@@ -32,8 +40,12 @@ Digunakan untuk mendaftarkan wajah karyawan baru atau update wajah existing.
 |-------|------|----------|-------------|
 | `employeeCode` | string | Yes* | Kode karyawan (mis: EMP001) |
 | `employeeId` | string | Yes* | UUID employee (alternatif dari employeeCode) |
-| `embedding` | float[] | Yes | 128-dimensional embedding dari MobileFaceNet |
+| `payload.type` | string | Yes | Harus "EMBEDDING_V1" |
+| `payload.embedding` | float[] | Yes | 128-dimensional embedding dari MobileFaceNet |
+| `facePhotoBase64` | string | **Yes** | **Foto wajah dalam base64 (untuk preview di web admin)** |
 | `deviceId` | string | Yes | Unique device identifier |
+| `liveness.provided` | boolean | No | Apakah liveness check dilakukan |
+| `liveness.score` | float | No | Skor liveness (0.0 - 1.0) |
 
 *Salah satu dari `employeeCode` atau `employeeId` harus diisi.
 
@@ -48,7 +60,9 @@ Digunakan untuk mendaftarkan wajah karyawan baru atau update wajah existing.
       "employeeCode": "EMP001",
       "fullName": "John Doe"
     },
-    "templateVersion": 2
+    "templateVersion": 2,
+    "enrolledAt": "2026-01-19T10:30:00.000Z",
+    "hasPhoto": true
   }
 }
 ```
@@ -251,8 +265,20 @@ Jika user sudah pernah enroll dari web, tapi mau login dari mobile:
 ```kotlin
 data class EnrollRequest(
     val employeeCode: String,
-    val embedding: FloatArray,
-    val deviceId: String
+    val payload: EnrollPayload,
+    val facePhotoBase64: String,  // Required for web preview
+    val deviceId: String,
+    val liveness: LivenessData? = null
+)
+
+data class EnrollPayload(
+    val type: String = "EMBEDDING_V1",
+    val embedding: FloatArray
+)
+
+data class LivenessData(
+    val provided: Boolean,
+    val score: Float
 )
 
 data class EnrollResponse(
@@ -262,18 +288,41 @@ data class EnrollResponse(
 data class EnrollData(
     val message: String,
     val employee: EmployeeInfo,
-    val templateVersion: Int
+    val templateVersion: Int,
+    val enrolledAt: String,
+    val hasPhoto: Boolean
 )
 
+/**
+ * Enroll face with photo for web admin preview
+ * 
+ * @param employeeCode Employee code (e.g., "EMP001")
+ * @param embedding 128-dimensional embedding from MobileFaceNet
+ * @param facePhotoBitmap Face photo bitmap for web preview
+ * @param deviceId Unique device identifier
+ * @param livenessScore Optional liveness score
+ */
 suspend fun enrollFace(
     employeeCode: String,
     embedding: FloatArray,
-    deviceId: String
+    facePhotoBitmap: Bitmap,
+    deviceId: String,
+    livenessScore: Float? = null
 ): Result<EnrollResponse> {
+    // Convert bitmap to base64
+    val outputStream = ByteArrayOutputStream()
+    facePhotoBitmap.compress(Bitmap.CompressFormat.JPEG, 90, outputStream)
+    val base64Photo = "data:image/jpeg;base64," + 
+        Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
+    
     val request = EnrollRequest(
         employeeCode = employeeCode,
-        embedding = embedding,
-        deviceId = deviceId
+        payload = EnrollPayload(embedding = embedding),
+        facePhotoBase64 = base64Photo,
+        deviceId = deviceId,
+        liveness = livenessScore?.let { 
+            LivenessData(provided = true, score = it) 
+        }
     )
     
     return apiService.enrollFace(request)

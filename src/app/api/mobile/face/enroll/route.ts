@@ -107,32 +107,51 @@ export async function POST(request: NextRequest) {
       : embedding.map(v => v / l2Norm)
 
     // 5. Upload face photo if provided
-    let facePhotoUrl: string | null = null
+    let facePhotoPath: string | null = null
+    let facePhotoMime: string | null = null
+    
     if (input.facePhotoBase64) {
       try {
-        // Extract base64 data
-        const base64Data = input.facePhotoBase64.replace(/^data:image\/\w+;base64,/, '')
+        // Extract mime type and base64 data
+        const matches = input.facePhotoBase64.match(/^data:([^;]+);base64,(.+)$/)
+        
+        let base64Data: string
+        let mimeType: string
+        
+        if (matches) {
+          mimeType = matches[1]
+          base64Data = matches[2]
+        } else {
+          // Assume JPEG if no data URL prefix
+          mimeType = 'image/jpeg'
+          base64Data = input.facePhotoBase64
+        }
+        
         const buffer = Buffer.from(base64Data, 'base64')
         
-        // Generate filename
-        const filename = `${employee.id}/face_mobile_${Date.now()}.jpg`
+        // Determine file extension
+        const ext = mimeType.includes('png') ? 'png' : 'jpg'
+        
+        // Generate filename (same pattern as web enrollment)
+        const filename = `${employee.id}/face_mobile_${Date.now()}.${ext}`
         
         // Upload to Supabase Storage
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('face-photos')
           .upload(filename, buffer, {
-            contentType: 'image/jpeg',
+            contentType: mimeType,
             upsert: true,
           })
 
-        if (!uploadError && uploadData) {
-          const { data: publicUrl } = supabase.storage
-            .from('face-photos')
-            .getPublicUrl(filename)
-          facePhotoUrl = publicUrl?.publicUrl || null
+        if (uploadError) {
+          console.error('[mobile-enroll] Photo upload error:', uploadError)
+        } else if (uploadData) {
+          facePhotoPath = filename
+          facePhotoMime = mimeType
+          console.log('[mobile-enroll] Photo uploaded:', filename)
         }
       } catch (photoError) {
-        console.error('Failed to upload face photo:', photoError)
+        console.error('[mobile-enroll] Failed to upload face photo:', photoError)
         // Continue without photo - not critical
       }
     }
@@ -140,15 +159,22 @@ export async function POST(request: NextRequest) {
     // 6. Insert or update face template
     if (existingTemplate) {
       // Update existing template
+      const updateData: Record<string, unknown> = {
+        embedding: normalizedEmbedding,
+        template_version: 2, // Version 2 = MobileFaceNet from mobile
+        quality_score: input.liveness?.score || null,
+        updated_at: new Date().toISOString(),
+      }
+      
+      // Add photo fields if photo was uploaded
+      if (facePhotoPath) {
+        updateData.face_photo_path = facePhotoPath
+        updateData.face_photo_mime = facePhotoMime
+      }
+      
       const { error: updateError } = await supabase
         .from('face_templates')
-        .update({
-          embedding: normalizedEmbedding,
-          template_version: 2, // Version 2 = MobileFaceNet from mobile
-          quality_score: input.liveness?.score || null,
-          face_photo_url: facePhotoUrl || undefined,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', existingTemplate.id)
 
       if (updateError) {
@@ -167,19 +193,26 @@ export async function POST(request: NextRequest) {
         },
         templateVersion: 2,
         enrolledAt: new Date().toISOString(),
-        facePhotoUrl,
+        hasPhoto: !!facePhotoPath,
       })
     } else {
       // Insert new template
+      const insertData: Record<string, unknown> = {
+        employee_id: employee.id,
+        embedding: normalizedEmbedding,
+        template_version: 2, // Version 2 = MobileFaceNet from mobile
+        quality_score: input.liveness?.score || null,
+      }
+      
+      // Add photo fields if photo was uploaded
+      if (facePhotoPath) {
+        insertData.face_photo_path = facePhotoPath
+        insertData.face_photo_mime = facePhotoMime
+      }
+      
       const { data: newTemplate, error: insertError } = await supabase
         .from('face_templates')
-        .insert({
-          employee_id: employee.id,
-          embedding: normalizedEmbedding,
-          template_version: 2, // Version 2 = MobileFaceNet from mobile
-          quality_score: input.liveness?.score || null,
-          face_photo_url: facePhotoUrl,
-        })
+        .insert(insertData)
         .select('id, created_at')
         .single()
 
@@ -199,7 +232,7 @@ export async function POST(request: NextRequest) {
         },
         templateVersion: 2,
         enrolledAt: newTemplate.created_at,
-        facePhotoUrl,
+        hasPhoto: !!facePhotoPath,
       })
     }
 
