@@ -19,14 +19,15 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminSupabaseClient()
 
     // List ALL employees (including non-active for debugging)
+    // Column names: employee_id (not employee_code), is_active (not status)
     let query = supabase
       .from('employees')
-      .select('id, employee_code, full_name, status')
-      .order('employee_code')
+      .select('id, employee_id, full_name, is_active')
+      .order('employee_id')
 
     // Filter by code if provided (case insensitive)
     if (code) {
-      query = query.ilike('employee_code', `%${code}%`)
+      query = query.ilike('employee_id', `%${code}%`)
     }
 
     const { data: employees, error } = await query.limit(50)
@@ -39,9 +40,9 @@ export async function GET(request: NextRequest) {
     return successResponse({
       employees: (employees || []).map(emp => ({
         id: emp.id,
-        employeeCode: emp.employee_code,
+        employeeCode: emp.employee_id,  // Map to employeeCode for consistency
         fullName: emp.full_name,
-        status: emp.status,
+        isActive: emp.is_active,
       })),
       total: employees?.length || 0,
     })

@@ -40,12 +40,13 @@ export async function POST(request: NextRequest) {
     const supabase = createAdminSupabaseClient()
 
     // 1. Find employee by employee code OR employee ID (case insensitive for code)
-    let employee: { id: string; employee_code: string; full_name: string; status: string } | null = null
+    // Column names: employee_id (not employee_code), is_active (not status)
+    let employee: { id: string; employee_id: string; full_name: string; is_active: boolean } | null = null
     
     if (input.employeeId) {
       const { data, error } = await supabase
         .from('employees')
-        .select('id, employee_code, full_name, status')
+        .select('id, employee_id, full_name, is_active')
         .eq('id', input.employeeId)
         .single()
       
@@ -54,11 +55,11 @@ export async function POST(request: NextRequest) {
       }
       if (!error && data) employee = data
     } else if (input.employeeCode) {
-      // Try exact match first
+      // Try exact match first (case insensitive)
       const { data, error } = await supabase
         .from('employees')
-        .select('id, employee_code, full_name, status')
-        .ilike('employee_code', input.employeeCode)
+        .select('id, employee_id, full_name, is_active')
+        .ilike('employee_id', input.employeeCode)
         .single()
       
       if (error) {
@@ -71,16 +72,16 @@ export async function POST(request: NextRequest) {
       // List all employees for debugging
       const { data: allEmps } = await supabase
         .from('employees')
-        .select('employee_code, full_name, status')
+        .select('employee_id, full_name, is_active')
         .limit(10)
       console.error('[mobile-enroll] Employee not found. Available employees:', allEmps)
       return errors.notFound('Employee')
     }
 
-    console.log('[mobile-enroll] Found employee:', employee.employee_code, employee.full_name, 'status:', employee.status)
+    console.log('[mobile-enroll] Found employee:', employee.employee_id, employee.full_name, 'active:', employee.is_active)
 
-    if (employee.status !== 'ACTIVE') {
-      return errors.forbidden(`Employee is not active (status: ${employee.status})`)
+    if (!employee.is_active) {
+      return errors.forbidden(`Employee is not active`)
     }
 
     // 2. Validate liveness score if provided
@@ -155,13 +156,13 @@ export async function POST(request: NextRequest) {
         return errors.internalError('Failed to update face template')
       }
 
-      console.log(`[mobile-enroll] Updated face template for ${employee.employee_code} (${employee.full_name})`)
+      console.log(`[mobile-enroll] Updated face template for ${employee.employee_id} (${employee.full_name})`)
 
       return successResponse({
         message: 'Face template updated successfully',
         employee: {
           id: employee.id,
-          employeeCode: employee.employee_code,
+          employeeCode: employee.employee_id,
           fullName: employee.full_name,
         },
         templateVersion: 2,
@@ -187,13 +188,13 @@ export async function POST(request: NextRequest) {
         return errors.internalError('Failed to create face template')
       }
 
-      console.log(`[mobile-enroll] Created face template for ${employee.employee_code} (${employee.full_name})`)
+      console.log(`[mobile-enroll] Created face template for ${employee.employee_id} (${employee.full_name})`)
 
       return successResponse({
         message: 'Face enrolled successfully',
         employee: {
           id: employee.id,
-          employeeCode: employee.employee_code,
+          employeeCode: employee.employee_id,
           fullName: employee.full_name,
         },
         templateVersion: 2,
