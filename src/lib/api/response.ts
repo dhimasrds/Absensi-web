@@ -104,6 +104,43 @@ export const errors = {
   faceNotRecognized: () =>
     errorResponse('FACE_NOT_RECOGNIZED', 'Face not recognized or below threshold', { status: 401 }),
 
+  faceNotRecognizedWithDetails: (details: {
+    reason: string
+    threshold: number
+    bestScore?: number
+    bestMatch?: { employeeId: string; fullName: string }
+    message: string
+  }) => {
+    const errorCode = details.reason === 'BELOW_THRESHOLD' 
+      ? 'FACE_BELOW_THRESHOLD' 
+      : details.reason === 'NO_MATCH'
+      ? 'FACE_NO_MATCH'
+      : details.reason === 'EMPLOYEE_INACTIVE'
+      ? 'EMPLOYEE_INACTIVE'
+      : 'FACE_NOT_RECOGNIZED'
+    
+    return errorResponse(errorCode, details.message, { 
+      status: 401, 
+      details: {
+        reason: details.reason,
+        threshold: details.threshold,
+        thresholdPercent: `${(details.threshold * 100).toFixed(1)}%`,
+        ...(details.bestScore !== undefined && {
+          bestScore: details.bestScore,
+          bestScorePercent: `${(details.bestScore * 100).toFixed(1)}%`,
+          gap: details.threshold - details.bestScore,
+          gapPercent: `${((details.threshold - details.bestScore) * 100).toFixed(1)}%`
+        }),
+        ...(details.bestMatch && {
+          nearestMatch: {
+            employeeId: details.bestMatch.employeeId,
+            fullName: details.bestMatch.fullName
+          }
+        })
+      }
+    })
+  },
+
   duplicateCapture: () =>
     errorResponse('DUPLICATE_CAPTURE', 'This capture has already been processed', { status: 409 }),
 

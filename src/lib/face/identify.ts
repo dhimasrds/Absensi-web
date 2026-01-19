@@ -4,10 +4,10 @@ import { getSettingNumber } from '@/lib/settings'
 import { preprocessEmbedding, validateEmbedding, logEmbeddingInfo } from '@/lib/face/embedding'
 
 /**
- * Identify employee by face embedding
- * Returns the best matching employee if score >= threshold
+ * Result type for face identification with detailed info
  */
-export async function identifyFace(embedding: number[]): Promise<{
+export type IdentifyFaceResult = {
+  success: true
   employee: {
     id: string
     employeeId: string
@@ -16,7 +16,24 @@ export async function identifyFace(embedding: number[]): Promise<{
     department: string | null
   }
   score: number
-} | null> {
+  threshold: number
+} | {
+  success: false
+  reason: 'NO_MATCH' | 'BELOW_THRESHOLD' | 'EMPLOYEE_INACTIVE' | 'ERROR'
+  threshold: number
+  bestScore?: number
+  bestMatch?: {
+    employeeId: string
+    fullName: string
+  }
+  message: string
+}
+
+/**
+ * Identify employee by face embedding
+ * Returns detailed result including failure reason
+ */
+export async function identifyFaceWithDetails(embedding: number[]): Promise<IdentifyFaceResult> {
   const supabase = createAdminSupabaseClient()
 
   // Get threshold from settings (with fallback to env var)
@@ -29,7 +46,12 @@ export async function identifyFace(embedding: number[]): Promise<{
   const validation = validateEmbedding(embedding)
   if (!validation.valid) {
     console.error('[identifyFace] Invalid embedding:', validation.errors)
-    throw new Error(`Invalid embedding: ${validation.errors.join(', ')}`)
+    return {
+      success: false,
+      reason: 'ERROR',
+      threshold,
+      message: `Invalid embedding: ${validation.errors.join(', ')}`
+    }
   }
   
   if (validation.warnings.length > 0) {
@@ -47,50 +69,110 @@ export async function identifyFace(embedding: number[]): Promise<{
   console.log('[identifyFace] Embedding length:', processedEmbedding.length)
   console.log('[identifyFace] Embedding normalized:', validation.stats.isNormalized ? 'yes' : 'was normalized')
 
-  // Call RPC function to identify face
-  const { data, error } = await supabase.rpc('face_identify_v1', {
+  // First, get ALL matches without threshold to see best score
+  const { data: allMatches, error: allError } = await supabase.rpc('face_identify_v1', {
     query_embedding: embeddingVector,
-    match_threshold: threshold,
-    match_count: 1,
+    match_threshold: 0, // Get all matches
+    match_count: 5,
   })
 
-  if (error) {
-    console.error('[identifyFace] RPC error:', error)
-    throw new Error('Face identification failed')
+  if (allError) {
+    console.error('[identifyFace] RPC error:', allError)
+    return {
+      success: false,
+      reason: 'ERROR',
+      threshold,
+      message: 'Face identification failed due to server error'
+    }
   }
 
-  console.log('[identifyFace] RPC results count:', data?.length || 0)
+  const allResults = allMatches as FaceIdentifyResult[]
+  console.log('[identifyFace] All matches count:', allResults?.length || 0)
 
-  const results = data as FaceIdentifyResult[]
-
-  if (!results || results.length === 0) {
-    console.log('[identifyFace] No matches found')
-    return null
+  // No matches at all
+  if (!allResults || allResults.length === 0) {
+    console.log('[identifyFace] No matches found in database')
+    return {
+      success: false,
+      reason: 'NO_MATCH',
+      threshold,
+      message: 'No registered face found. Please enroll your face first.'
+    }
   }
 
-  const match = results[0]
+  const bestMatch = allResults[0]
+  console.log('[identifyFace] Best match score:', bestMatch.score, 'threshold:', threshold)
 
-  console.log('[identifyFace] Best match:', {
-    employeeId: match.employee_id,
-    score: match.score
-  })
+  // Check if best match is below threshold
+  if (bestMatch.score < threshold) {
+    // Get employee name for better error message
+    const { data: emp } = await supabase
+      .from('employees')
+      .select('employee_id, full_name')
+      .eq('id', bestMatch.employee_id)
+      .single()
+
+    const scorePercent = (bestMatch.score * 100).toFixed(1)
+    const thresholdPercent = (threshold * 100).toFixed(1)
+    const gap = ((threshold - bestMatch.score) * 100).toFixed(1)
+
+    console.log('[identifyFace] Below threshold:', {
+      score: bestMatch.score,
+      threshold,
+      gap: threshold - bestMatch.score,
+      nearestEmployee: emp?.employee_id
+    })
+
+    return {
+      success: false,
+      reason: 'BELOW_THRESHOLD',
+      threshold,
+      bestScore: bestMatch.score,
+      bestMatch: emp ? {
+        employeeId: emp.employee_id,
+        fullName: emp.full_name
+      } : undefined,
+      message: `Face match score (${scorePercent}%) is below threshold (${thresholdPercent}%). Gap: ${gap}%. Try better lighting or re-enroll your face.`
+    }
+  }
 
   // Get employee details
   const { data: employee, error: empError } = await supabase
     .from('employees')
-    .select('id, employee_id, full_name, email, department')
-    .eq('id', match.employee_id)
-    .eq('is_active', true)
+    .select('id, employee_id, full_name, email, department, is_active')
+    .eq('id', bestMatch.employee_id)
     .single()
 
   if (empError || !employee) {
     console.error('[identifyFace] Employee fetch error:', empError)
-    return null
+    return {
+      success: false,
+      reason: 'ERROR',
+      threshold,
+      bestScore: bestMatch.score,
+      message: 'Failed to fetch employee data'
+    }
   }
 
-  console.log('[identifyFace] Success:', employee.employee_id, employee.full_name)
+  // Check if employee is active
+  if (!employee.is_active) {
+    return {
+      success: false,
+      reason: 'EMPLOYEE_INACTIVE',
+      threshold,
+      bestScore: bestMatch.score,
+      bestMatch: {
+        employeeId: employee.employee_id,
+        fullName: employee.full_name
+      },
+      message: `Employee ${employee.employee_id} is inactive. Please contact administrator.`
+    }
+  }
+
+  console.log('[identifyFace] Success:', employee.employee_id, employee.full_name, 'score:', bestMatch.score)
 
   return {
+    success: true,
     employee: {
       id: employee.id,
       employeeId: employee.employee_id,
@@ -98,8 +180,35 @@ export async function identifyFace(embedding: number[]): Promise<{
       email: employee.email,
       department: employee.department,
     },
-    score: match.score,
+    score: bestMatch.score,
+    threshold,
   }
+}
+
+/**
+ * Identify employee by face embedding (legacy - returns null on failure)
+ * @deprecated Use identifyFaceWithDetails for better error handling
+ */
+export async function identifyFace(embedding: number[]): Promise<{
+  employee: {
+    id: string
+    employeeId: string
+    fullName: string
+    email: string | null
+    department: string | null
+  }
+  score: number
+} | null> {
+  const result = await identifyFaceWithDetails(embedding)
+  
+  if (result.success) {
+    return {
+      employee: result.employee,
+      score: result.score
+    }
+  }
+  
+  return null
 }
 
 /**

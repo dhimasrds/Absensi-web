@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { successResponse, validationErrorResponse, errors } from '@/lib/api/response'
 import { faceLoginSchema } from '@/lib/validators/mobileAuth'
-import { identifyFace, checkDeviceActive } from '@/lib/face/identify'
+import { identifyFaceWithDetails, checkDeviceActive } from '@/lib/face/identify'
 import { generateTokenPair, hashRefreshToken } from '@/lib/auth/mobileJwt'
 import { ZodError } from 'zod'
 
@@ -95,18 +95,33 @@ export async function POST(request: NextRequest) {
       return errors.duplicateCapture()
     }
 
-    // 4. Identify face
-    const identifyResult = await identifyFace(input.payload.embedding)
+    // 4. Identify face with detailed result
+    const identifyResult = await identifyFaceWithDetails(input.payload.embedding)
 
-    if (!identifyResult) {
-      // For debugging: log the failure reason
-      console.log('[face-login] Face not recognized - no match found or below threshold')
-      return errors.faceNotRecognized()
+    if (!identifyResult.success) {
+      // Return detailed error message
+      console.log('[face-login] Face identification failed:', {
+        reason: identifyResult.reason,
+        threshold: identifyResult.threshold,
+        bestScore: identifyResult.bestScore,
+        bestMatch: identifyResult.bestMatch,
+        message: identifyResult.message
+      })
+
+      // Return detailed error response based on reason
+      return errors.faceNotRecognizedWithDetails({
+        reason: identifyResult.reason,
+        threshold: identifyResult.threshold,
+        bestScore: identifyResult.bestScore,
+        bestMatch: identifyResult.bestMatch,
+        message: identifyResult.message
+      })
     }
     
     console.log('[face-login] Face identified successfully:', {
       employeeId: identifyResult.employee.employeeId,
-      score: identifyResult.score
+      score: identifyResult.score,
+      threshold: identifyResult.threshold
     })
 
     // 5. Generate token pair
