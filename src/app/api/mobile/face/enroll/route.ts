@@ -15,7 +15,8 @@ import { z } from 'zod'
 
 const enrollSchema = z.object({
   deviceId: z.string().min(1),
-  employeeCode: z.string().min(1), // Employee code for identification
+  employeeCode: z.string().optional(), // Employee code for identification
+  employeeId: z.string().uuid().optional(), // Or employee UUID directly
   payload: z.object({
     type: z.literal('EMBEDDING_V1'),
     embedding: z.array(z.number()).min(128).max(192),
@@ -27,6 +28,8 @@ const enrollSchema = z.object({
   facePhotoBase64: z.string().optional(), // Optional face photo
   model: z.string().optional(),
   os: z.string().optional(),
+}).refine(data => data.employeeCode || data.employeeId, {
+  message: "Either employeeCode or employeeId is required"
 })
 
 export async function POST(request: NextRequest) {
@@ -36,14 +39,28 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminSupabaseClient()
 
-    // 1. Find employee by employee code
-    const { data: employee, error: employeeError } = await supabase
-      .from('employees')
-      .select('id, employee_code, full_name, status')
-      .eq('employee_code', input.employeeCode)
-      .single()
+    // 1. Find employee by employee code OR employee ID
+    let employee: { id: string; employee_code: string; full_name: string; status: string } | null = null
+    
+    if (input.employeeId) {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, employee_code, full_name, status')
+        .eq('id', input.employeeId)
+        .single()
+      
+      if (!error && data) employee = data
+    } else if (input.employeeCode) {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, employee_code, full_name, status')
+        .eq('employee_code', input.employeeCode)
+        .single()
+      
+      if (!error && data) employee = data
+    }
 
-    if (employeeError || !employee) {
+    if (!employee) {
       return errors.notFound('Employee')
     }
 
