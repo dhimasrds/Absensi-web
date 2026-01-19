@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminSupabaseClient()
 
-    // 1. Find employee by employee code OR employee ID
+    // 1. Find employee by employee code OR employee ID (case insensitive for code)
     let employee: { id: string; employee_code: string; full_name: string; status: string } | null = null
     
     if (input.employeeId) {
@@ -49,23 +49,38 @@ export async function POST(request: NextRequest) {
         .eq('id', input.employeeId)
         .single()
       
+      if (error) {
+        console.error('[mobile-enroll] Employee by ID error:', error)
+      }
       if (!error && data) employee = data
     } else if (input.employeeCode) {
+      // Try exact match first
       const { data, error } = await supabase
         .from('employees')
         .select('id, employee_code, full_name, status')
-        .eq('employee_code', input.employeeCode)
+        .ilike('employee_code', input.employeeCode)
         .single()
       
+      if (error) {
+        console.error('[mobile-enroll] Employee by code error:', error, 'code:', input.employeeCode)
+      }
       if (!error && data) employee = data
     }
 
     if (!employee) {
+      // List all employees for debugging
+      const { data: allEmps } = await supabase
+        .from('employees')
+        .select('employee_code, full_name, status')
+        .limit(10)
+      console.error('[mobile-enroll] Employee not found. Available employees:', allEmps)
       return errors.notFound('Employee')
     }
 
+    console.log('[mobile-enroll] Found employee:', employee.employee_code, employee.full_name, 'status:', employee.status)
+
     if (employee.status !== 'ACTIVE') {
-      return errors.forbidden('Employee is not active')
+      return errors.forbidden(`Employee is not active (status: ${employee.status})`)
     }
 
     // 2. Validate liveness score if provided
