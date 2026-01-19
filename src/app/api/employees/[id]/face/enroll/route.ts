@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/auth/adminGuard'
 import { successResponse, validationErrorResponse, errors } from '@/lib/api/response'
 import { enrollFaceSchema } from '@/lib/validators/face'
 import { ZodError } from 'zod'
+import { preprocessEmbedding, validateEmbedding, logEmbeddingInfo } from '@/lib/face/embedding'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -38,8 +39,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return errors.badRequest('EMPLOYEE_INACTIVE', 'Cannot enroll face for inactive employee')
     }
 
+    // Validate and preprocess embedding
+    // This ensures alignment with mobile side (L2 normalization, etc)
+    const rawEmbedding = input.payload.embedding
+    logEmbeddingInfo(rawEmbedding, 'Enrollment - Raw')
+    
+    const validation = validateEmbedding(rawEmbedding)
+    if (!validation.valid) {
+      console.error('Embedding validation failed:', validation.errors)
+      return errors.badRequest('INVALID_EMBEDDING', `Invalid embedding: ${validation.errors.join(', ')}`)
+    }
+    
+    // Preprocess (will normalize if needed)
+    const processedEmbedding = preprocessEmbedding(rawEmbedding)
+    logEmbeddingInfo(processedEmbedding, 'Enrollment - Processed')
+
     // Convert embedding array to vector format for PostgreSQL
-    const embeddingVector = `[${input.payload.embedding.join(',')}]`
+    const embeddingVector = `[${processedEmbedding.join(',')}]`
 
     // Upload face photo to storage if provided
     let facePhotoPath: string | null = null

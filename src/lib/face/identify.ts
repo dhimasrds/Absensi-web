@@ -1,6 +1,7 @@
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { FaceIdentifyResult } from '@/lib/types/database'
 import { getSettingNumber } from '@/lib/settings'
+import { preprocessEmbedding, validateEmbedding, logEmbeddingInfo } from '@/lib/face/embedding'
 
 /**
  * Identify employee by face embedding
@@ -22,12 +23,29 @@ export async function identifyFace(embedding: number[]): Promise<{
   const envThreshold = parseFloat(process.env.FACE_MATCH_THRESHOLD || '0.60')
   const threshold = await getSettingNumber('face_match_threshold', envThreshold)
 
+  // Validate and preprocess embedding
+  logEmbeddingInfo(embedding, 'Identify - Query')
+  
+  const validation = validateEmbedding(embedding)
+  if (!validation.valid) {
+    console.error('[identifyFace] Invalid embedding:', validation.errors)
+    throw new Error(`Invalid embedding: ${validation.errors.join(', ')}`)
+  }
+  
+  if (validation.warnings.length > 0) {
+    console.warn('[identifyFace] Embedding warnings:', validation.warnings)
+  }
+
+  // Preprocess (normalize if needed)
+  const processedEmbedding = preprocessEmbedding(embedding)
+
   // Convert embedding array to vector format
-  const embeddingVector = `[${embedding.join(',')}]`
+  const embeddingVector = `[${processedEmbedding.join(',')}]`
 
   console.log('[identifyFace] Starting face identification')
   console.log('[identifyFace] Threshold:', threshold, '(from settings)')
-  console.log('[identifyFace] Embedding length:', embedding.length)
+  console.log('[identifyFace] Embedding length:', processedEmbedding.length)
+  console.log('[identifyFace] Embedding normalized:', validation.stats.isNormalized ? 'yes' : 'was normalized')
 
   // Call RPC function to identify face
   const { data, error } = await supabase.rpc('face_identify_v1', {
