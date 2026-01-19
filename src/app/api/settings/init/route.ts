@@ -14,11 +14,12 @@ export async function POST() {
     const settings = await getSettingsByCategory()
     console.log('[Settings Init] Fetched settings count:', settings.length)
     
-    return NextResponse.json(successResponse({
+    // successResponse already returns NextResponse
+    return successResponse({
       message: 'Settings initialized successfully',
       count: settings.length,
       settings,
-    }))
+    })
   } catch (error) {
     console.error('[Settings Init API] Error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -43,10 +44,11 @@ export async function GET() {
   try {
     const settings = await getSettingsByCategory()
     
-    return NextResponse.json(successResponse({
+    // successResponse already returns NextResponse
+    return successResponse({
       initialized: settings.length > 0,
       count: settings.length,
-    }))
+    })
   } catch (error) {
     console.error('[Settings Init API] GET Error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'

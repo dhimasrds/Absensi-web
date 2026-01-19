@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(successResponse(settings))
+    // successResponse already returns NextResponse, don't wrap again
+    return successResponse(settings)
   } catch (error) {
     console.error('[Settings API] GET error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
