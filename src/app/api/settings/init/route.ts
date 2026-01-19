@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { initializeSettings, getSettingsByCategory } from '@/lib/settings'
-import { successResponse, errors } from '@/lib/api/response'
+import { successResponse } from '@/lib/api/response'
 
 /**
  * POST /api/settings/init
@@ -8,8 +8,11 @@ import { successResponse, errors } from '@/lib/api/response'
  */
 export async function POST() {
   try {
+    console.log('[Settings Init] Starting initialization...')
     await initializeSettings()
+    
     const settings = await getSettingsByCategory()
+    console.log('[Settings Init] Fetched settings count:', settings.length)
     
     return NextResponse.json(successResponse({
       message: 'Settings initialized successfully',
@@ -18,7 +21,17 @@ export async function POST() {
     }))
   } catch (error) {
     console.error('[Settings Init API] Error:', error)
-    return errors.internalError()
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json(
+      { 
+        error: { 
+          code: 'INIT_ERROR', 
+          message: `Failed to initialize settings: ${errorMessage}`,
+          details: error instanceof Error ? error.stack : undefined
+        } 
+      },
+      { status: 500 }
+    )
   }
 }
 
@@ -35,7 +48,16 @@ export async function GET() {
       count: settings.length,
     }))
   } catch (error) {
-    console.error('[Settings Init API] Error:', error)
-    return errors.internalError()
+    console.error('[Settings Init API] GET Error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json(
+      { 
+        error: { 
+          code: 'CHECK_ERROR', 
+          message: `Failed to check settings: ${errorMessage}` 
+        } 
+      },
+      { status: 500 }
+    )
   }
 }

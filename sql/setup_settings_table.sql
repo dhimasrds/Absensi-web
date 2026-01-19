@@ -49,6 +49,7 @@ ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
 -- 6. Create policies (drop existing first to avoid conflicts)
 DROP POLICY IF EXISTS "Allow authenticated to read settings" ON app_settings;
 DROP POLICY IF EXISTS "Allow authenticated to update settings" ON app_settings;
+DROP POLICY IF EXISTS "Allow authenticated to insert settings" ON app_settings;
 DROP POLICY IF EXISTS "Allow service role full access" ON app_settings;
 
 CREATE POLICY "Allow authenticated to read settings"
@@ -60,6 +61,11 @@ CREATE POLICY "Allow authenticated to update settings"
   ON app_settings FOR UPDATE
   TO authenticated
   USING (true)
+  WITH CHECK (true);
+
+CREATE POLICY "Allow authenticated to insert settings"
+  ON app_settings FOR INSERT
+  TO authenticated
   WITH CHECK (true);
 
 CREATE POLICY "Allow service role full access"

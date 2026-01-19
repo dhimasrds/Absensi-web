@@ -100,8 +100,12 @@ const DEFAULT_SETTINGS: Omit<AppSetting, 'id' | 'updated_at'>[] = [
 export async function initializeSettings(): Promise<void> {
   const supabase = createAdminSupabaseClient()
 
+  console.log('[Settings] Initializing default settings...')
+  
   for (const setting of DEFAULT_SETTINGS) {
-    const { error } = await supabase
+    console.log(`[Settings] Upserting: ${setting.key}`)
+    
+    const { data, error } = await supabase
       .from('app_settings')
       .upsert(
         {
@@ -112,9 +116,16 @@ export async function initializeSettings(): Promise<void> {
         },
         { onConflict: 'key', ignoreDuplicates: true }
       )
+      .select()
 
     if (error) {
-      console.error(`[Settings] Error initializing ${setting.key}:`, error)
+      console.error(`[Settings] Error initializing ${setting.key}:`, error.message, error.code, error.details)
+      // If table doesn't exist, throw to show user
+      if (error.code === '42P01') {
+        throw new Error('Table app_settings does not exist. Please run the SQL migration first.')
+      }
+    } else {
+      console.log(`[Settings] Successfully upserted: ${setting.key}`, data)
     }
   }
 
