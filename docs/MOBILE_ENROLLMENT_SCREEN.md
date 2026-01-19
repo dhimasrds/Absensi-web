@@ -68,13 +68,15 @@ Screen ini digunakan untuk mendaftarkan wajah karyawan baru agar bisa login meng
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `employeeCode` | string | ✅ | Kode karyawan dari admin (EMP001, EMP002, dll) |
+| `employeeCode` | string | ✅ | Kode karyawan = kolom `employee_id` di table `employees` (contoh: EMP001, EMP002) |
 | `payload.type` | string | ✅ | Harus `"EMBEDDING_V1"` |
 | `payload.embedding` | float[] | ✅ | 128-dimensional embedding dari MobileFaceNet |
 | `facePhotoBase64` | string | ✅ | Foto wajah dalam format base64 dengan prefix `data:image/jpeg;base64,` |
 | `deviceId` | string | ✅ | Unique device ID |
 | `liveness.provided` | boolean | ❌ | Apakah liveness check dilakukan |
 | `liveness.score` | float | ❌ | Skor liveness (0.0 - 1.0) |
+
+> **Note:** Field `employeeCode` di request = kolom `employee_id` di database (bukan UUID `id`)
 
 ---
 
