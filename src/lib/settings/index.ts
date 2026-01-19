@@ -60,6 +60,67 @@ export async function getSettingBoolean(key: string, defaultValue: boolean): Pro
   return value === 'true' || value === '1'
 }
 
+// Default settings to insert if table is empty
+const DEFAULT_SETTINGS: Omit<AppSetting, 'id' | 'updated_at'>[] = [
+  {
+    key: 'face_match_threshold',
+    value: '0.60',
+    description: 'Minimum similarity score for face recognition (0.0 - 1.0). Lower = easier to login, Higher = more secure.',
+    category: 'face_recognition',
+  },
+  {
+    key: 'face_liveness_threshold',
+    value: '0.80',
+    description: 'Minimum liveness detection score (0.0 - 1.0). Detects if face is real or photo/video.',
+    category: 'face_recognition',
+  },
+  {
+    key: 'capture_max_skew_seconds',
+    value: '300',
+    description: 'Maximum age of capture timestamp in seconds before it is considered invalid.',
+    category: 'face_recognition',
+  },
+  {
+    key: 'geofence_enabled',
+    value: 'true',
+    description: 'Enable GPS geofencing for attendance validation.',
+    category: 'attendance',
+  },
+  {
+    key: 'work_location_radius_meters',
+    value: '100',
+    description: 'Default radius for work location geofencing in meters.',
+    category: 'attendance',
+  },
+]
+
+/**
+ * Initialize default settings if they don't exist
+ */
+export async function initializeSettings(): Promise<void> {
+  const supabase = createAdminSupabaseClient()
+
+  for (const setting of DEFAULT_SETTINGS) {
+    const { error } = await supabase
+      .from('app_settings')
+      .upsert(
+        {
+          key: setting.key,
+          value: setting.value,
+          description: setting.description,
+          category: setting.category,
+        },
+        { onConflict: 'key', ignoreDuplicates: true }
+      )
+
+    if (error) {
+      console.error(`[Settings] Error initializing ${setting.key}:`, error)
+    }
+  }
+
+  console.log('[Settings] Default settings initialized')
+}
+
 /**
  * Get all settings by category
  */
@@ -80,7 +141,20 @@ export async function getSettingsByCategory(category?: string): Promise<AppSetti
 
   if (error) {
     console.error('[Settings] Error fetching settings:', error)
+    // If table doesn't exist, try to initialize
+    if (error.code === '42P01') {
+      console.log('[Settings] Table does not exist, needs migration')
+    }
     return []
+  }
+
+  // If no settings found, initialize defaults
+  if (!data || data.length === 0) {
+    console.log('[Settings] No settings found, initializing defaults...')
+    await initializeSettings()
+    // Retry fetch
+    const { data: retryData } = await query
+    return retryData || []
   }
 
   return data || []

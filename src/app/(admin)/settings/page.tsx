@@ -58,6 +58,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<Setting[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
+  const [initializing, setInitializing] = useState(false)
 
   useEffect(() => {
     fetchSettings()
@@ -69,12 +70,39 @@ export default function SettingsPage() {
       const response = await fetch('/api/settings')
       const json = await response.json()
       if (json.data) {
+        // If no settings found, try to initialize
+        if (json.data.length === 0) {
+          console.log('No settings found, initializing...')
+          await initializeSettings()
+          return
+        }
         setSettings(json.data)
       }
     } catch (error) {
       console.error('Error fetching settings:', error)
       toast.error('Failed to load settings')
     } finally {
+      setLoading(false)
+    }
+  }
+
+  const initializeSettings = async () => {
+    try {
+      setInitializing(true)
+      const response = await fetch('/api/settings/init', { method: 'POST' })
+      const json = await response.json()
+      
+      if (response.ok && json.data?.settings) {
+        setSettings(json.data.settings)
+        toast.success('Settings initialized successfully')
+      } else {
+        toast.error('Failed to initialize settings')
+      }
+    } catch (error) {
+      console.error('Error initializing settings:', error)
+      toast.error('Failed to initialize settings')
+    } finally {
+      setInitializing(false)
       setLoading(false)
     }
   }
@@ -138,10 +166,37 @@ export default function SettingsPage() {
     return descriptions[category] || ''
   }
 
-  if (loading) {
+  if (loading || initializing) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <Loader2 className="h-8 w-8 animate-spin" />
+        <p className="text-muted-foreground">
+          {initializing ? 'Initializing settings...' : 'Loading settings...'}
+        </p>
+      </div>
+    )
+  }
+
+  // Show empty state with initialize button if no settings
+  if (settings.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <div className="text-center space-y-4">
+          <h2 className="text-2xl font-bold">No Settings Found</h2>
+          <p className="text-muted-foreground">
+            Settings have not been initialized yet. Click the button below to set up default settings.
+          </p>
+          <Button onClick={initializeSettings} disabled={initializing}>
+            {initializing ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Initializing...
+              </>
+            ) : (
+              'Initialize Settings'
+            )}
+          </Button>
+        </div>
       </div>
     )
   }
