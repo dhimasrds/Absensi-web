@@ -23,8 +23,12 @@ import {
   X
 } from 'lucide-react'
 
-// Dynamic import for face-api to avoid SSR issues
+// Dynamic import for face-api (used for face detection and embedding)
 let faceapi: typeof import('@vladmandic/face-api') | null = null
+
+// NOTE: MobileFaceNet integration is prepared but requires ONNX model file
+// For now, we use face-api.js embedding + mobile will re-enroll with matching model
+// This is temporary until model alignment is complete
 
 interface Employee {
   id: string
@@ -63,7 +67,7 @@ export function FaceEnrollmentDialog({
   const imageRef = useRef<HTMLImageElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  // Load face-api models
+  // Load face-api models for face detection and embedding
   const loadModels = useCallback(async () => {
     if (modelsLoaded || loadingModels) return
     
@@ -74,7 +78,7 @@ export function FaceEnrollmentDialog({
         faceapi = await import('@vladmandic/face-api')
       }
       
-      // Load from jsDelivr CDN to avoid storing large model files in repo
+      // Load face-api models from jsDelivr CDN
       const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model'
       
       await Promise.all([
@@ -84,9 +88,12 @@ export function FaceEnrollmentDialog({
       ])
       
       setModelsLoaded(true)
-      console.log('Face-api models loaded successfully')
+      console.log('✅ Face-api models loaded')
+      console.log('⚠️ NOTE: Web uses face-api.js model. Mobile uses MobileFaceNet.')
+      console.log('   For accurate matching, use Mobile App for enrollment.')
+      
     } catch (err) {
-      console.error('Failed to load face-api models:', err)
+      console.error('Failed to load models:', err)
       setError('Gagal memuat model face detection. Silakan refresh halaman.')
     } finally {
       setLoadingModels(false)
@@ -166,7 +173,9 @@ export function FaceEnrollmentDialog({
         img.src = url
       })
 
-      // Detect face with landmarks and descriptor
+      // Use face-api.js for face detection AND embedding
+      // NOTE: This uses different model than mobile app (face-api.js vs MobileFaceNet)
+      // For accurate face matching, enrollment should be done from mobile app
       const detection = await faceapi
         .detectSingleFace(img)
         .withFaceLandmarks()
@@ -178,8 +187,11 @@ export function FaceEnrollmentDialog({
         return
       }
 
-      // Get embedding (128-dimensional descriptor)
+      // Get embedding from face-api.js (128-dimensional)
       const descriptor = Array.from(detection.descriptor)
+      console.log('✅ Face-api.js embedding extracted:', descriptor.length, 'dimensions')
+      console.log('⚠️ NOTE: This embedding uses face-api.js model, not MobileFaceNet')
+      
       setEmbedding(descriptor)
       
       // Get detection confidence
