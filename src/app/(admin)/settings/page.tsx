@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Loader2, Save, RefreshCw } from 'lucide-react'
+import { Slider } from '@/components/ui/slider'
+import { Badge } from '@/components/ui/badge'
+import { Loader2, Save, RefreshCw, AlertTriangle, CheckCircle2, Info } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface Setting {
@@ -15,6 +17,41 @@ interface Setting {
   description: string | null
   category: string
   updated_at: string
+}
+
+// Configuration for threshold settings with slider
+const THRESHOLD_SETTINGS: Record<string, {
+  min: number
+  max: number
+  step: number
+  labels: { value: number; label: string; color: string }[]
+  recommendation: string
+}> = {
+  face_match_threshold: {
+    min: 0.3,
+    max: 0.9,
+    step: 0.01,
+    labels: [
+      { value: 0.4, label: 'Very Lenient', color: 'destructive' },
+      { value: 0.5, label: 'Lenient', color: 'warning' },
+      { value: 0.6, label: 'Balanced', color: 'success' },
+      { value: 0.7, label: 'Strict', color: 'warning' },
+      { value: 0.8, label: 'Very Strict', color: 'destructive' },
+    ],
+    recommendation: '0.55 - 0.65 untuk keseimbangan akurasi dan kenyamanan',
+  },
+  face_liveness_threshold: {
+    min: 0.5,
+    max: 1.0,
+    step: 0.01,
+    labels: [
+      { value: 0.6, label: 'Low', color: 'destructive' },
+      { value: 0.7, label: 'Medium', color: 'warning' },
+      { value: 0.8, label: 'High', color: 'success' },
+      { value: 0.9, label: 'Very High', color: 'success' },
+    ],
+    recommendation: '0.75 - 0.85 untuk deteksi anti-spoofing yang baik',
+  },
 }
 
 export default function SettingsPage() {
@@ -137,79 +174,284 @@ export default function SettingsPage() {
               <CardDescription>{getCategoryDescription(category)}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {categorySettings.map((setting) => (
-                <form key={setting.key} onSubmit={handleSubmit(setting.key)} className="space-y-2">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-2">
-                      <Label htmlFor={setting.key} className="font-medium">
-                        {setting.key.split('_').map(word => 
-                          word.charAt(0).toUpperCase() + word.slice(1)
-                        ).join(' ')}
-                      </Label>
-                      {setting.description && (
-                        <p className="text-sm text-muted-foreground">
-                          {setting.description}
+              {categorySettings.map((setting) => {
+                const isThreshold = setting.key in THRESHOLD_SETTINGS
+                const thresholdConfig = THRESHOLD_SETTINGS[setting.key]
+                const currentValue = parseFloat(setting.value)
+                
+                // Get current level label for threshold
+                const getCurrentLevel = () => {
+                  if (!thresholdConfig) return null
+                  const sorted = [...thresholdConfig.labels].sort((a, b) => b.value - a.value)
+                  for (const level of sorted) {
+                    if (currentValue >= level.value) {
+                      return level
+                    }
+                  }
+                  return sorted[sorted.length - 1]
+                }
+                const currentLevel = getCurrentLevel()
+
+                if (isThreshold && thresholdConfig) {
+                  return (
+                    <ThresholdSetting
+                      key={setting.key}
+                      setting={setting}
+                      config={thresholdConfig}
+                      currentValue={currentValue}
+                      currentLevel={currentLevel}
+                      saving={saving}
+                      onSave={updateSetting}
+                    />
+                  )
+                }
+
+                // Regular input for non-threshold settings
+                return (
+                  <form key={setting.key} onSubmit={handleSubmit(setting.key)} className="space-y-2">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 space-y-2">
+                        <Label htmlFor={setting.key} className="font-medium">
+                          {setting.key.split('_').map(word => 
+                            word.charAt(0).toUpperCase() + word.slice(1)
+                          ).join(' ')}
+                        </Label>
+                        {setting.description && (
+                          <p className="text-sm text-muted-foreground">
+                            {setting.description}
+                          </p>
+                        )}
+                        <div className="flex gap-2">
+                          <Input
+                            id={setting.key}
+                            name={setting.key}
+                            defaultValue={setting.value}
+                            className="max-w-xs"
+                            disabled={saving === setting.key}
+                          />
+                          <Button
+                            type="submit"
+                            size="sm"
+                            disabled={saving === setting.key}
+                          >
+                            {saving === setting.key ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="h-4 w-4 mr-2" />
+                                Save
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Current: <code className="bg-muted px-1 py-0.5 rounded">{setting.value}</code>
+                          {' • '}
+                          Last updated: {new Date(setting.updated_at).toLocaleString()}
                         </p>
-                      )}
-                      <div className="flex gap-2">
-                        <Input
-                          id={setting.key}
-                          name={setting.key}
-                          defaultValue={setting.value}
-                          className="max-w-xs"
-                          disabled={saving === setting.key}
-                        />
-                        <Button
-                          type="submit"
-                          size="sm"
-                          disabled={saving === setting.key}
-                        >
-                          {saving === setting.key ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Saving...
-                            </>
-                          ) : (
-                            <>
-                              <Save className="h-4 w-4 mr-2" />
-                              Save
-                            </>
-                          )}
-                        </Button>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Current: <code className="bg-muted px-1 py-0.5 rounded">{setting.value}</code>
-                        {' • '}
-                        Last updated: {new Date(setting.updated_at).toLocaleString()}
-                      </p>
                     </div>
-                  </div>
-                </form>
-              ))}
+                  </form>
+                )
+              })}
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <Card className="mt-8 border-yellow-500/50 bg-yellow-500/5">
+      <Card className="mt-8 border-blue-500/50 bg-blue-500/5">
         <CardHeader>
-          <CardTitle className="text-yellow-600">⚠️ Important Notes</CardTitle>
+          <CardTitle className="text-blue-600 flex items-center gap-2">
+            <Info className="h-5 w-5" />
+            Fine-Tuning Guide
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <p>
-            <strong>Face Match Threshold (0.0 - 1.0):</strong> Lower value = more lenient (easier to login), Higher value = stricter (more secure). Recommended: 0.55 - 0.65
-          </p>
-          <p>
-            <strong>Liveness Threshold:</strong> Minimum score to detect if face is real (not photo/video). Recommended: 0.80+
-          </p>
-          <p>
-            <strong>Capture Max Skew:</strong> Maximum age of face capture in seconds. Too low = rejected old captures, Too high = security risk.
-          </p>
-          <p className="text-muted-foreground mt-4">
-            ℹ️ Changes take effect immediately after saving. Cache is cleared automatically.
-          </p>
+        <CardContent className="space-y-4 text-sm">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="p-4 rounded-lg bg-background border">
+              <h4 className="font-semibold mb-2 flex items-center gap-2">
+                <span className="text-lg">🎯</span> Face Match Threshold
+              </h4>
+              <ul className="space-y-1 text-muted-foreground">
+                <li>• <strong>0.50-0.55:</strong> Sangat lenient, mudah login</li>
+                <li>• <strong>0.55-0.65:</strong> Balanced (Recommended)</li>
+                <li>• <strong>0.65-0.75:</strong> Strict, lebih aman</li>
+                <li>• <strong>&gt;0.75:</strong> Very strict, mungkin sering gagal</li>
+              </ul>
+            </div>
+            <div className="p-4 rounded-lg bg-background border">
+              <h4 className="font-semibold mb-2 flex items-center gap-2">
+                <span className="text-lg">🛡️</span> Liveness Threshold
+              </h4>
+              <ul className="space-y-1 text-muted-foreground">
+                <li>• <strong>0.60-0.70:</strong> Basic anti-spoofing</li>
+                <li>• <strong>0.75-0.85:</strong> Good protection (Recommended)</li>
+                <li>• <strong>&gt;0.85:</strong> High security</li>
+              </ul>
+            </div>
+          </div>
+          <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+            <p className="flex items-start gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
+              <span>
+                <strong>Tips:</strong> Jika banyak user gagal login, turunkan threshold sedikit demi sedikit (0.02-0.05). 
+                Perubahan langsung aktif tanpa perlu deploy ulang.
+              </span>
+            </p>
+          </div>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+// Separate component for threshold settings with slider
+function ThresholdSetting({
+  setting,
+  config,
+  currentValue,
+  currentLevel,
+  saving,
+  onSave,
+}: {
+  setting: Setting
+  config: typeof THRESHOLD_SETTINGS[string]
+  currentValue: number
+  currentLevel: { value: number; label: string; color: string } | null
+  saving: string | null
+  onSave: (key: string, value: string) => Promise<void>
+}) {
+  const [sliderValue, setSliderValue] = useState(currentValue)
+  const [hasChanges, setHasChanges] = useState(false)
+
+  // Reset slider when setting changes (e.g., after save)
+  useEffect(() => {
+    setSliderValue(currentValue)
+    setHasChanges(false)
+  }, [currentValue])
+
+  const handleSliderChange = (values: number[]) => {
+    const newValue = values[0]
+    setSliderValue(newValue)
+    setHasChanges(Math.abs(newValue - currentValue) > 0.001)
+  }
+
+  const handleSave = () => {
+    onSave(setting.key, sliderValue.toFixed(2))
+  }
+
+  const handleReset = () => {
+    setSliderValue(currentValue)
+    setHasChanges(false)
+  }
+
+  // Determine badge variant based on color
+  const getBadgeVariant = (color: string) => {
+    switch (color) {
+      case 'success': return 'default'
+      case 'warning': return 'secondary'
+      case 'destructive': return 'destructive'
+      default: return 'outline'
+    }
+  }
+
+  return (
+    <div className="space-y-4 p-4 rounded-lg border bg-card">
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Label className="text-base font-semibold">
+              {setting.key.split('_').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1)
+              ).join(' ')}
+            </Label>
+            {currentLevel && (
+              <Badge variant={getBadgeVariant(currentLevel.color)}>
+                {currentLevel.label}
+              </Badge>
+            )}
+          </div>
+          {setting.description && (
+            <p className="text-sm text-muted-foreground">
+              {setting.description}
+            </p>
+          )}
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-bold font-mono">
+            {sliderValue.toFixed(2)}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Current: {currentValue.toFixed(2)}
+          </div>
+        </div>
+      </div>
+
+      {/* Slider */}
+      <div className="space-y-3">
+        <Slider
+          value={[sliderValue]}
+          min={config.min}
+          max={config.max}
+          step={config.step}
+          onValueChange={handleSliderChange}
+          disabled={saving === setting.key}
+          className="w-full"
+        />
+        
+        {/* Scale labels */}
+        <div className="flex justify-between text-xs text-muted-foreground px-1">
+          <span>{config.min.toFixed(2)}</span>
+          <span className="text-center">{((config.min + config.max) / 2).toFixed(2)}</span>
+          <span>{config.max.toFixed(2)}</span>
+        </div>
+      </div>
+
+      {/* Recommendation */}
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <CheckCircle2 className="h-3 w-3 text-green-500" />
+        <span>Recommended: {config.recommendation}</span>
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={handleSave}
+          disabled={!hasChanges || saving === setting.key}
+          size="sm"
+          className="flex-1"
+        >
+          {saving === setting.key ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4 mr-2" />
+              Save Changes
+            </>
+          )}
+        </Button>
+        {hasChanges && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReset}
+            disabled={saving === setting.key}
+          >
+            Reset
+          </Button>
+        )}
+      </div>
+
+      {/* Last updated */}
+      <p className="text-xs text-muted-foreground">
+        Last updated: {new Date(setting.updated_at).toLocaleString()}
+      </p>
     </div>
   )
 }
