@@ -13,10 +13,10 @@ const updateSettingSchema = z.object({
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { key: string } }
+  { params }: { params: Promise<{ key: string }> }
 ) {
   try {
-    const key = params.key
+    const { key } = await params
     const body = await request.json()
 
     // Validate input
