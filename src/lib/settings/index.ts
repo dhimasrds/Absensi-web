@@ -83,13 +83,13 @@ const DEFAULT_SETTINGS: Omit<AppSetting, 'id' | 'updated_at'>[] = [
   {
     key: 'geofence_enabled',
     value: 'true',
-    description: 'Enable GPS geofencing for attendance validation.',
+    description: 'Enable GPS geofencing for attendance validation. If disabled, attendance can be recorded from anywhere.',
     category: 'attendance',
   },
   {
     key: 'work_location_radius_meters',
     value: '100',
-    description: 'Default radius for work location geofencing in meters.',
+    description: 'Global geofence radius in meters. Applied to ALL work locations. Employees must be within this radius to check-in/out.',
     category: 'attendance',
   },
 ]

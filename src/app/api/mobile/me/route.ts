@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { successResponse, errors } from '@/lib/api/response'
 import { requireMobileAuth } from '@/lib/auth/mobileGuard'
+import { getSettingNumber, getSettingBoolean } from '@/lib/settings'
 
 // GET /api/mobile/me - Get current authenticated employee info
 export async function GET(request: NextRequest) {
@@ -107,6 +108,10 @@ export async function GET(request: NextRequest) {
       ? employee.work_location[0] 
       : employee.work_location
 
+    // Get global settings for geofence
+    const globalRadiusMeters = await getSettingNumber('work_location_radius_meters', 100)
+    const geofenceEnabled = await getSettingBoolean('geofence_enabled', true)
+
     // Handle face_templates (could be null, single object, or array)
     const faceTemplates = employee.face_templates 
       ? (Array.isArray(employee.face_templates) ? employee.face_templates : [employee.face_templates])
@@ -147,7 +152,7 @@ export async function GET(request: NextRequest) {
           address: workLocation.address,
           latitude: workLocation.latitude,
           longitude: workLocation.longitude,
-          radiusMeters: workLocation.radius_meters,
+          radiusMeters: globalRadiusMeters, // Use global setting instead of per-location
         } : null,
       },
       device: device ? {
@@ -171,6 +176,10 @@ export async function GET(request: NextRequest) {
           timestamp: todayCheckOut.timestamp,
           verificationStatus: todayCheckOut.verification_status,
         } : null,
+      },
+      settings: {
+        geofenceEnabled,
+        globalRadiusMeters,
       }
     })
   } catch (error) {
