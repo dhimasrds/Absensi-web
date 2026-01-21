@@ -18,12 +18,21 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
-import { ClipboardList, UserCheck, Clock, Image, Calendar, Filter } from 'lucide-react'
+import { ClipboardList, UserCheck, Clock, Image, Calendar, Filter, MoreHorizontal, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 
 interface AttendanceRecord {
   id: string
@@ -82,6 +91,13 @@ function AttendancePageContent() {
   const [proofLoading, setProofLoading] = useState(false)
   const [proofUrl, setProofUrl] = useState<string | null>(null)
   const [proofRecord, setProofRecord] = useState<AttendanceRecord | null>(null)
+
+  // Verification dialog
+  const [verificationDialogOpen, setVerificationDialogOpen] = useState(false)
+  const [verificationAction, setVerificationAction] = useState<'VERIFIED' | 'REJECTED' | null>(null)
+  const [verificationNote, setVerificationNote] = useState('')
+  const [verificationRecord, setVerificationRecord] = useState<AttendanceRecord | null>(null)
+  const [verificationLoading, setVerificationLoading] = useState(false)
 
   const fetchRecords = useCallback(async () => {
     setLoading(true)
@@ -165,6 +181,55 @@ function AttendancePageContent() {
       toast.error('Failed to load proof image')
     } finally {
       setProofLoading(false)
+    }
+  }
+
+  const openVerificationDialog = (record: AttendanceRecord, action: 'VERIFIED' | 'REJECTED') => {
+    setVerificationRecord(record)
+    setVerificationAction(action)
+    setVerificationNote('')
+    setVerificationDialogOpen(true)
+  }
+
+  const closeVerificationDialog = () => {
+    setVerificationDialogOpen(false)
+    setVerificationRecord(null)
+    setVerificationAction(null)
+    setVerificationNote('')
+  }
+
+  const handleVerificationSubmit = async () => {
+    if (!verificationRecord || !verificationAction) return
+    
+    setVerificationLoading(true)
+    try {
+      const res = await fetch(`/api/attendance/${verificationRecord.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          verificationStatus: verificationAction,
+          note: verificationNote || undefined,
+        }),
+      })
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error?.message || 'Failed to update verification status')
+      }
+      
+      toast.success(
+        verificationAction === 'VERIFIED' 
+          ? 'Attendance approved successfully' 
+          : 'Attendance rejected'
+      )
+      
+      closeVerificationDialog()
+      fetchRecords() // Refresh the list
+    } catch (error) {
+      console.error('Error updating verification:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to update verification status')
+    } finally {
+      setVerificationLoading(false)
     }
   }
 
@@ -272,7 +337,8 @@ function AttendancePageContent() {
                     <TableHead>Date & Time</TableHead>
                     <TableHead>Verification</TableHead>
                     <TableHead>Source</TableHead>
-                    <TableHead className="text-right">Proof</TableHead>
+                    <TableHead>Proof</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -341,6 +407,36 @@ function AttendancePageContent() {
                             <Image className="h-4 w-4 mr-1" />
                             View
                           </Button>
+                        ) : (
+                          <span className="text-sm text-gray-400">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {record.verificationStatus === 'PENDING' ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem 
+                                onClick={() => openVerificationDialog(record, 'VERIFIED')}
+                                className="text-green-600"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Approve
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => openVerificationDialog(record, 'REJECTED')}
+                                className="text-red-600"
+                              >
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Reject
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         ) : (
                           <span className="text-sm text-gray-400">-</span>
                         )}
@@ -425,6 +521,85 @@ function AttendancePageContent() {
               )}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Verification Confirmation Dialog */}
+      <Dialog open={verificationDialogOpen} onOpenChange={(open) => !open && closeVerificationDialog()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {verificationAction === 'VERIFIED' ? (
+                <>
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  Approve Attendance
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-5 w-5 text-red-600" />
+                  Reject Attendance
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {verificationAction === 'VERIFIED'
+                ? 'Are you sure you want to approve this attendance record?'
+                : 'Are you sure you want to reject this attendance record? Please provide a reason.'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {verificationRecord && (
+            <div className="space-y-4">
+              <div className="bg-gray-50 rounded-lg p-3 text-sm">
+                <p className="font-medium">{verificationRecord.employee.name}</p>
+                <p className="text-gray-500">
+                  {verificationRecord.employee.code} · {verificationRecord.employee.department || '-'}
+                </p>
+                <p className="text-gray-500 mt-1">
+                  {verificationRecord.attendanceType === 'CHECK_IN' ? 'Check In' : 'Check Out'} at{' '}
+                  {formatTime(verificationRecord.capturedAt)} on {formatDate(verificationRecord.capturedAt)}
+                </p>
+                {verificationRecord.matchScore && (
+                  <p className="text-gray-500">
+                    Match Score: {(verificationRecord.matchScore * 100).toFixed(0)}%
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  {verificationAction === 'REJECTED' ? 'Rejection Reason *' : 'Note (optional)'}
+                </label>
+                <Textarea
+                  placeholder={
+                    verificationAction === 'REJECTED'
+                      ? 'Please provide a reason for rejection...'
+                      : 'Add a note (optional)...'
+                  }
+                  value={verificationNote}
+                  onChange={(e) => setVerificationNote(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={closeVerificationDialog}
+              disabled={verificationLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={verificationAction === 'VERIFIED' ? 'default' : 'destructive'}
+              onClick={handleVerificationSubmit}
+              disabled={verificationLoading || (verificationAction === 'REJECTED' && !verificationNote.trim())}
+            >
+              {verificationLoading ? 'Processing...' : verificationAction === 'VERIFIED' ? 'Approve' : 'Reject'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
