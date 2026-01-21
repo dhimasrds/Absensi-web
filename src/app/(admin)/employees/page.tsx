@@ -34,7 +34,8 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { Plus, Search, Pencil, Trash2, UserPlus, Users, MapPin, ScanFace, Image as ImageIcon } from 'lucide-react'
-import { FaceEnrollmentDialog } from '@/components/employees/FaceEnrollmentDialog'
+// Face enrollment disabled - now done via mobile app
+// import { FaceEnrollmentDialog } from '@/components/employees/FaceEnrollmentDialog'
 import { FacePhotoPreviewDialog } from '@/components/employees/FacePhotoPreviewDialog'
 
 interface WorkLocation {
@@ -88,7 +89,8 @@ function EmployeesPageContent() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
-  const [isFaceEnrollOpen, setIsFaceEnrollOpen] = useState(false)
+  // Face enrollment disabled - now done via mobile app
+  // const [isFaceEnrollOpen, setIsFaceEnrollOpen] = useState(false)
   const [isFacePhotoPreviewOpen, setIsFacePhotoPreviewOpen] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
   const [formLoading, setFormLoading] = useState(false)
@@ -505,17 +507,7 @@ function EmployeesPageContent() {
                               <ImageIcon className="h-4 w-4 text-purple-500" />
                             </Button>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title={emp.hasFaceEnrolled ? "Re-enroll Face" : "Enroll Face"}
-                            onClick={() => {
-                              setSelectedEmployee(emp)
-                              setIsFaceEnrollOpen(true)
-                            }}
-                          >
-                            <ScanFace className="h-4 w-4 text-blue-500" />
-                          </Button>
+                          {/* Face enrollment disabled - now done via mobile app */}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -693,8 +685,8 @@ function EmployeesPageContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Face Enrollment Dialog */}
-      {selectedEmployee && (
+      {/* Face Enrollment Dialog - Disabled, now done via mobile app */}
+      {/* {selectedEmployee && (
         <FaceEnrollmentDialog
           open={isFaceEnrollOpen}
           onOpenChange={setIsFaceEnrollOpen}
@@ -707,7 +699,7 @@ function EmployeesPageContent() {
             fetchEmployees()
           }}
         />
-      )}
+      )} */}
 
       {/* Face Photo Preview Dialog */}
       {selectedEmployee && (
