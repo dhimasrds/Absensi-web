@@ -40,18 +40,6 @@ const THRESHOLD_SETTINGS: Record<string, {
     ],
     recommendation: '0.55 - 0.65 untuk keseimbangan akurasi dan kenyamanan',
   },
-  face_liveness_threshold: {
-    min: 0.5,
-    max: 1.0,
-    step: 0.01,
-    labels: [
-      { value: 0.6, label: 'Low', color: 'destructive' },
-      { value: 0.7, label: 'Medium', color: 'warning' },
-      { value: 0.8, label: 'High', color: 'success' },
-      { value: 0.9, label: 'Very High', color: 'success' },
-    ],
-    recommendation: '0.75 - 0.85 untuk deteksi anti-spoofing yang baik',
-  },
 }
 
 export default function SettingsPage() {
@@ -140,13 +128,18 @@ export default function SettingsPage() {
     updateSetting(key, value)
   }
 
-  const groupedSettings = settings.reduce((acc, setting) => {
-    if (!acc[setting.category]) {
-      acc[setting.category] = []
-    }
-    acc[setting.category].push(setting)
-    return acc
-  }, {} as Record<string, Setting[]>)
+  // Settings to hide from UI (not needed for now)
+  const hiddenSettings = ['face_liveness_threshold']
+
+  const groupedSettings = settings
+    .filter(setting => !hiddenSettings.includes(setting.key))
+    .reduce((acc, setting) => {
+      if (!acc[setting.category]) {
+        acc[setting.category] = []
+      }
+      acc[setting.category].push(setting)
+      return acc
+    }, {} as Record<string, Setting[]>)
 
   const getCategoryTitle = (category: string) => {
     const titles: Record<string, string> = {
