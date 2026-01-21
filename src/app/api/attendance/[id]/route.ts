@@ -134,9 +134,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Prepare update data
-    const updateData: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    }
+    const updateData: Record<string, unknown> = {}
 
     if (input.verificationStatus !== undefined) {
       updateData.verification_status = input.verificationStatus
