@@ -276,6 +276,19 @@ export default function SettingsPage() {
                             defaultValue={setting.value}
                             className="max-w-xs"
                             disabled={saving === setting.key}
+                            type={setting.key === 'work_location_radius_meters' ? 'number' : 'text'}
+                            min={setting.key === 'work_location_radius_meters' ? '1' : undefined}
+                            max={setting.key === 'work_location_radius_meters' ? '999' : undefined}
+                            step={setting.key === 'work_location_radius_meters' ? '1' : undefined}
+                            onInput={setting.key === 'work_location_radius_meters' ? (e) => {
+                              const input = e.currentTarget as HTMLInputElement
+                              // Remove non-numeric characters
+                              input.value = input.value.replace(/[^0-9]/g, '')
+                              // Limit to 3 digits
+                              if (input.value.length > 3) {
+                                input.value = input.value.slice(0, 3)
+                              }
+                            } : undefined}
                           />
                           <Button
                             type="submit"
@@ -297,6 +310,7 @@ export default function SettingsPage() {
                         </div>
                         <p className="text-xs text-muted-foreground">
                           Current: <code className="bg-muted px-1 py-0.5 rounded">{setting.value}</code>
+                          {setting.key === 'work_location_radius_meters' && ' meters'}
                           {' • '}
                           Last updated: {new Date(setting.updated_at).toLocaleString()}
                         </p>
