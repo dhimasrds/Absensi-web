@@ -32,7 +32,8 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
-import { ClipboardList, UserCheck, Clock, Image, Calendar, Filter, MoreHorizontal, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import { ClipboardList, UserCheck, Clock, Image, Calendar, Filter, MoreHorizontal, CheckCircle, XCircle, AlertCircle, MapPin, BarChart3 } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
 
 interface AttendanceRecord {
   id: string
@@ -42,6 +43,10 @@ interface AttendanceRecord {
     name: string
     department: string | null
     jobTitle: string | null
+    workLocation: {
+      id: string
+      name: string
+    } | null
   }
   device: {
     name: string
@@ -99,6 +104,38 @@ function AttendancePageContent() {
   const [verificationRecord, setVerificationRecord] = useState<AttendanceRecord | null>(null)
   const [verificationLoading, setVerificationLoading] = useState(false)
 
+  // Location statistics
+  const [locationStats, setLocationStats] = useState<{ name: string; count: number; checkIn: number; checkOut: number }[]>([])
+
+  // Calculate location statistics
+  const calculateLocationStats = useCallback((records: AttendanceRecord[]) => {
+    const statsMap = new Map<string, { name: string; count: number; checkIn: number; checkOut: number }>()
+    
+    records.forEach(record => {
+      const locationName = record.employee.workLocation?.name || 'No Location'
+      
+      if (!statsMap.has(locationName)) {
+        statsMap.set(locationName, {
+          name: locationName,
+          count: 0,
+          checkIn: 0,
+          checkOut: 0,
+        })
+      }
+      
+      const stat = statsMap.get(locationName)!
+      stat.count++
+      
+      if (record.attendanceType === 'CHECK_IN') {
+        stat.checkIn++
+      } else {
+        stat.checkOut++
+      }
+    })
+    
+    return Array.from(statsMap.values()).sort((a, b) => b.count - a.count)
+  }, [])
+
   const fetchRecords = useCallback(async () => {
     setLoading(true)
     try {
@@ -116,13 +153,16 @@ function AttendancePageContent() {
         setRecords(data.data)
         setTotal(data.meta.pagination.total)
         setTotalPages(data.meta.pagination.totalPages)
+        
+        // Calculate location statistics
+        setLocationStats(calculateLocationStats(data.data))
       }
     } catch {
       toast.error('Failed to fetch attendance records')
     } finally {
       setLoading(false)
     }
-  }, [dateFrom, dateTo, typeFilter, page])
+  }, [dateFrom, dateTo, typeFilter, page, calculateLocationStats])
 
   useEffect(() => {
     fetchRecords()
@@ -301,6 +341,69 @@ function AttendancePageContent() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Location Statistics Chart */}
+      {!loading && locationStats.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Attendance by Work Location
+            </CardTitle>
+            <CardDescription>
+              Check-in and check-out distribution across work locations
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={locationStats}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="name" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                    interval={0}
+                  />
+                  <YAxis />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #ccc',
+                      borderRadius: '4px' 
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="checkIn" name="Check In" fill="#10b981" />
+                  <Bar dataKey="checkOut" name="Check Out" fill="#f59e0b" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            
+            {/* Summary Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t">
+              {locationStats.slice(0, 4).map((stat, index) => (
+                <div key={stat.name} className="text-center">
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <MapPin className="h-4 w-4 text-gray-400" />
+                    <p className="text-sm font-medium text-gray-600 truncate">
+                      {stat.name}
+                    </p>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{stat.count}</p>
+                  <p className="text-xs text-gray-500">
+                    {stat.checkIn} in, {stat.checkOut} out
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Records Table */}
       <Card>

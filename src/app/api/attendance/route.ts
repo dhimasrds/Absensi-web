@@ -55,7 +55,12 @@ export async function GET(request: NextRequest) {
         employees!inner (
           employee_id,
           full_name,
-          department
+          department,
+          work_location_id,
+          work_locations (
+            id,
+            name
+          )
         )
       `, { count: 'exact' })
       .order('timestamp', { ascending: query.sortDir === 'asc' })
@@ -95,6 +100,11 @@ export async function GET(request: NextRequest) {
         employee_id: string
         full_name: string
         department: string | null
+        work_location_id: string | null
+        work_locations: {
+          id: string
+          name: string
+        } | null
       }
 
       return {
@@ -104,6 +114,10 @@ export async function GET(request: NextRequest) {
           code: employee.employee_id,
           name: employee.full_name,
           department: employee.department,
+          workLocation: employee.work_locations ? {
+            id: employee.work_locations.id,
+            name: employee.work_locations.name,
+          } : null,
         },
         device: att.device_id ? {
           id: att.device_id,
